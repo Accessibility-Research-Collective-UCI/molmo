@@ -1,4 +1,5 @@
 """Class to evaluate models based on their generation outputs"""
+
 import dataclasses
 import itertools
 import logging
@@ -13,8 +14,15 @@ import wandb
 from tqdm import tqdm
 
 from .evaluators import (
-    HtmlTable, CountEval, PointCountEval, PointingEval, ClockEval, VqaEval,
-    SavePredictions, AndroidControlEval, MathVistaEval, PointingEval
+    HtmlTable,
+    CountEval,
+    PointCountEval,
+    ClockEval,
+    VqaEval,
+    SavePredictions,
+    AndroidControlEval,
+    MathVistaEval,
+    PointingEval,
 )
 from ..config import EvaluatorConfig
 from ..torch_util import (
@@ -32,13 +40,15 @@ class InfEvaluator:
     """
     Evaluates the text outputs from a model on a task
     """
+
     metrics: List
 
     def __call__(self, predictions, example_metadata, tokenizer, device, step=None):
         inf_metrics = {}
         for metric in self.metrics:
             results = metric(
-                example_metadata, predictions, step=step, tokenizer=tokenizer)
+                example_metadata, predictions, step=step, tokenizer=tokenizer
+            )
             assert all(k not in inf_metrics for k in results)
             inf_metrics.update(results)
 
@@ -52,7 +62,7 @@ class InfEvaluator:
                 # Special case, we aggregate table rows from all devices to ensure we can always
                 # have enough rows to show even if each device only eval-ed a few examples
                 if get_global_rank() == 0:
-                    all_predictions = [None]*get_world_size()
+                    all_predictions = [None] * get_world_size()
                     dist.gather_object(v, all_predictions)
                     all_rows = flatten_list([x.rows for x in all_predictions])
                     resolved_metrics[k] = wandb.Html(HtmlTable(all_rows).get_html())
@@ -65,9 +75,14 @@ class InfEvaluator:
             if isinstance(metric, (CountEval, PointCountEval)):
                 # Counting has a macro-score that should be computed once we have
                 # scores from all devices
-                counting_scores = {k: resolved_metrics[k] for
-                                   k in list(resolved_metrics.keys()) if k.startswith("correct_")}
-                resolved_metrics["per_category_average"] = np.mean(list(counting_scores.values()))
+                counting_scores = {
+                    k: resolved_metrics[k]
+                    for k in list(resolved_metrics.keys())
+                    if k.startswith("correct_")
+                }
+                resolved_metrics["per_category_average"] = np.mean(
+                    list(counting_scores.values())
+                )
         return resolved_metrics
 
 
@@ -76,14 +91,14 @@ def build_inf_evaluator(cfg: EvaluatorConfig, default_save_dir=None) -> InfEvalu
     save_predictions = cfg.save_predictions
     if save_predictions == "_default":
         if default_save_dir is None:
-            logging.info(f"save_predictions is default but not default save dir set")
+            logging.info("save_predictions is default but not default save dir set")
         save_predictions = default_save_dir
     if save_predictions:
-        evaluators.append(SavePredictions(
-            save_predictions,
-            log_examples=cfg.n_to_log,
-            save_tokens=cfg.save_tokens
-        ))
+        evaluators.append(
+            SavePredictions(
+                save_predictions, log_examples=cfg.n_to_log, save_tokens=cfg.save_tokens
+            )
+        )
 
     if cfg.vqa_eval:
         evaluators.append(VqaEval(cfg.vqa_eval.split(","), cfg.num_wandb_examples))
@@ -117,8 +132,15 @@ class InfDatasetEvaluator:
     max_new_tokens: int = 448
     console_log_interval: Optional[int] = None
 
-    def evaluate_model(self, model, device, autocast_precision, is_distributed,
-                       inference_warmup=False, pbar=False):
+    def evaluate_model(
+        self,
+        model,
+        device,
+        autocast_precision,
+        is_distributed,
+        inference_warmup=False,
+        pbar=False,
+    ):
         eval_dataloader = self.dataloader
         eval_it = iter(eval_dataloader)
         n_steps = self.n_steps
@@ -132,12 +154,16 @@ class InfDatasetEvaluator:
         predictions = defaultdict(list)
         done_init = False
         pbar = pbar and get_global_rank() == 0
-        for eval_step, batch in enumerate(tqdm(eval_it, total=total_steps, ncols=100, disable=not pbar)):
+        for eval_step, batch in enumerate(
+            tqdm(eval_it, total=total_steps, ncols=100, disable=not pbar)
+        ):
             if "metadata" in batch:
                 batch_metadata = batch.pop("metadata")
             else:
                 # Handle old-style data that used metadata/ prefix instead
-                metadata = {k: batch.pop(k) for k in list(batch) if k.startswith("metadata/")}
+                metadata = {
+                    k: batch.pop(k) for k in list(batch) if k.startswith("metadata/")
+                }
                 batch_metadata = []
                 for i in range(len(batch["input_ids"])):
                     converted = {}
@@ -170,15 +196,20 @@ class InfDatasetEvaluator:
                         image_masks=batch_inference.get("image_masks"),
                         image_input_idx=batch_inference.get("image_input_idx"),
                         max_steps=self.max_new_tokens,
-                        is_distributed=is_distributed
+                        is_distributed=is_distributed,
                     )
 
             pred = {
-                "predictions": olmo_gen_output.token_ids[:, 0].detach().cpu().numpy(), # beam size of 1
+                "predictions": olmo_gen_output.token_ids[:, 0]
+                .detach()
+                .cpu()
+                .numpy(),  # beam size of 1
                 "prompts": batch_inference["input_ids"].detach().cpu().numpy(),
             }
 
-            valid_ixs = [i for i, md in enumerate(batch_metadata) if md.get("valid", True)]
+            valid_ixs = [
+                i for i, md in enumerate(batch_metadata) if md.get("valid", True)
+            ]
             all_metadata += [batch_metadata[i] for i in valid_ixs]
             for k, v in pred.items():
                 for ix in valid_ixs:
@@ -186,7 +217,10 @@ class InfDatasetEvaluator:
 
             # Log to console.
             if self.console_log_interval and not pbar:
-                if eval_step + 1 == n_steps or (eval_step + 1) % self.console_log_interval == 0:
+                if (
+                    eval_step + 1 == n_steps
+                    or (eval_step + 1) % self.console_log_interval == 0
+                ):
                     if total_steps:
                         log.info(f"[eval_step={eval_step + 1}/{total_steps}]")
                     else:
@@ -195,4 +229,3 @@ class InfDatasetEvaluator:
         tokenizer = model.config.get_tokenizer()
         metrics = self.evaluator(predictions, all_metadata, tokenizer, device)
         return metrics
-

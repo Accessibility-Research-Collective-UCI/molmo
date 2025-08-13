@@ -43,7 +43,7 @@ def main(
     model_only: bool = False,
     safe_tensors: bool = False,
     use_shared_mem_impl: bool = False,
-    olmo_config: bool=False
+    olmo_config: bool = False,
 ) -> None:
     if isinstance(input_dir, str):
         input_dir = Path(input_dir)
@@ -58,7 +58,9 @@ def main(
 
     checkpointer: Checkpointer
     if sharded_checkpoint_type == ShardedCheckpointerType.torch_legacy:
-        checkpointer = TorchLegacyShardedCheckpointer(config, use_shared_mem_impl=use_shared_mem_impl)
+        checkpointer = TorchLegacyShardedCheckpointer(
+            config, use_shared_mem_impl=use_shared_mem_impl
+        )
     elif sharded_checkpoint_type == ShardedCheckpointerType.local:
         checkpointer = LocalShardedCheckpointer(config)
     elif sharded_checkpoint_type == ShardedCheckpointerType.olmo_core:
@@ -66,10 +68,12 @@ def main(
     else:
         raise NotImplementedError(sharded_checkpoint_type)
 
-    model_state_dict, optim_state_dict, trainer_state_dict = checkpointer.unshard_checkpoint(
-        input_dir,
-        load_optimizer_state=not model_only,
-        load_trainer_state=not model_only,
+    model_state_dict, optim_state_dict, trainer_state_dict = (
+        checkpointer.unshard_checkpoint(
+            input_dir,
+            load_optimizer_state=not model_only,
+            load_trainer_state=not model_only,
+        )
     )
 
     # model
@@ -110,7 +114,9 @@ def main(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(prog="unshard.py", description="Unshard sharded checkpoints on CPU")
+    parser = argparse.ArgumentParser(
+        prog="unshard.py", description="Unshard sharded checkpoints on CPU"
+    )
     parser.add_argument("input_dir")
     parser.add_argument("output_dir")
     parser.add_argument(
@@ -149,5 +155,5 @@ if __name__ == "__main__":
         model_only=args.model_only,
         safe_tensors=args.safe_tensors,
         use_shared_mem_impl=args.use_legacy_shared_mem_impl,
-        olmo_config=args.olmo_config
+        olmo_config=args.olmo_config,
     )

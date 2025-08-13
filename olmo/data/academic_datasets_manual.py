@@ -1,5 +1,6 @@
 """Datasets the load directly from source files,
 Currently not used in favour of using HF datasets"""
+
 import json
 import logging
 from collections import defaultdict
@@ -36,12 +37,12 @@ def get_coco_image_file(image_id, split):
         subset = "val2014"
     else:
         subset = "train2014"
-    return join(COCO_IMAGES, f'{subset}/COCO_{subset}_{str(image_id).zfill(12)}.jpg')
+    return join(COCO_IMAGES, f"{subset}/COCO_{subset}_{str(image_id).zfill(12)}.jpg")
 
 
 def is_in_coco_val2017(image_id, _val2017=set()):
     if not _val2017:
-        with open(join(COCO_IMAGES, f"2017_val_images_ids.json")) as f:
+        with open(join(COCO_IMAGES, "2017_val_images_ids.json")) as f:
             _val2017.update(json.load(f))
     return image_id in _val2017
 
@@ -74,7 +75,7 @@ def _load_vqa2(q_src, a_src, split, multi_question, raw_answer=False):
 
     if split == "val":
         # Used to figure out the image URLs
-        val2017 = set(load_json(join(COCO_IMAGES, f"2017_val_images_ids.json")))
+        val2017 = set(load_json(join(COCO_IMAGES, "2017_val_images_ids.json")))
 
     grouped_by_image = defaultdict(list)
     for q in q_data:
@@ -110,19 +111,25 @@ def _load_vqa2(q_src, a_src, split, multi_question, raw_answer=False):
         if not multi_question:
             for q in json_questions:
                 q_metadata = dict(**metadata, example_id=q["question_id"])
-                data.append(dict(
-                    question=q["question"],
-                    answers=q["answers"],
-                    image=image,
-                    metadata=q_metadata
-                ))
+                data.append(
+                    dict(
+                        question=q["question"],
+                        answers=q["answers"],
+                        image=image,
+                        metadata=q_metadata,
+                    )
+                )
         else:
-            data.append(dict(
-                questions=[{k: q[k] for k in ["question", "answers"]}
-                           for q in json_questions],
-                image=image,
-                metadata=metadata
-            ))
+            data.append(
+                dict(
+                    questions=[
+                        {k: q[k] for k in ["question", "answers"]}
+                        for q in json_questions
+                    ],
+                    image=image,
+                    metadata=metadata,
+                )
+            )
     return data
 
 
@@ -155,15 +162,15 @@ class Vqa2014Manual(DatasetBase):
         else:
             messages = []
             for q in ex["questions"]:
-                messages.append(dict(
-                    question=q["question"],
-                    answers=q["answers"],
-                    style="vqa2",
-                ))
+                messages.append(
+                    dict(
+                        question=q["question"],
+                        answers=q["answers"],
+                        style="vqa2",
+                    )
+                )
             return dict(
-                metadata=ex["metadata"],
-                image=ex["image"],
-                message_list=messages
+                metadata=ex["metadata"], image=ex["image"], message_list=messages
             )
 
 
@@ -184,34 +191,38 @@ class AOkVqaManual(DatasetBase):
 
         out = []
         for ex in data:
-            image_id = ex['image_id']
+            image_id = ex["image_id"]
             image_file_name = get_coco_image_file(image_id, split)
             if split == "train":
                 if not exists(image_file_name):
                     image_file_name = get_coco_image_file(image_id, "val")
-                    assert exists(image_file_name), f"Missing expected file {image_file_name}"
+                    assert exists(image_file_name), (
+                        f"Missing expected file {image_file_name}"
+                    )
 
             if self.direct_answer:
                 if ex["difficult_direct_answer"] and split in ["val", "test"]:
                     continue
-                out.append(dict(
-                    image=image_file_name,
-                    question=ex["question"],
-                    answers=ex["direct_answers"],
-                    metadata=dict(
-                        example_id=ex["question_id"]
+                out.append(
+                    dict(
+                        image=image_file_name,
+                        question=ex["question"],
+                        answers=ex["direct_answers"],
+                        metadata=dict(example_id=ex["question_id"]),
                     )
-                ))
+                )
             else:
-                out.append(dict(
-                    image=image_file_name,
-                    question=ex["question"],
-                    options=ex["choices"],
-                    answer_idx=ex.get("correct_choice_idx"),
-                    metadata=dict(
-                        example_id=ex["question_id"],
+                out.append(
+                    dict(
+                        image=image_file_name,
+                        question=ex["question"],
+                        options=ex["choices"],
+                        answer_idx=ex.get("correct_choice_idx"),
+                        metadata=dict(
+                            example_id=ex["question_id"],
+                        ),
                     )
-                ))
+                )
         return out
 
     def get(self, item, rng):
@@ -219,7 +230,6 @@ class AOkVqaManual(DatasetBase):
 
 
 class AndroidControl(DatasetBase):  # TODO needs a preparation script
-
     def download(self, n_procs=1):
         AndroidControlBuilder().download_and_prepare(num_proc=n_procs)
 
@@ -227,7 +237,7 @@ class AndroidControl(DatasetBase):  # TODO needs a preparation script
         assert split in ["train", "validation", "test"]
         self.split = split
         self.mode = mode
-        super().__init__(f"android_control", split, sample=sample)
+        super().__init__("android_control", split, sample=sample)
 
     def load(self):
         src = join(ANDROID_CONTROL_SRC, f"{self.split}.jsonl")
@@ -242,23 +252,29 @@ class AndroidControl(DatasetBase):  # TODO needs a preparation script
             dict(
                 prompt="low_level: " + ex["metadata/ll_instruction"],
                 text=ex["metadata/target_action"],
-                style="android_control"
+                style="android_control",
             ),
             dict(
-                prompt="high_level: " + ex["metadata/hl_instruction"] + " low_level: " + ex["metadata/ll_instruction"],
+                prompt="high_level: "
+                + ex["metadata/hl_instruction"]
+                + " low_level: "
+                + ex["metadata/ll_instruction"],
                 text=ex["metadata/target_action"],
-                style="android_control"
+                style="android_control",
             ),
             dict(
                 prompt="high_level: " + ex["metadata/hl_instruction"],
                 text=ex["metadata/target_action"],
-                style="android_control"
+                style="android_control",
             ),
             dict(
                 prompt="high_level_cot: " + ex["metadata/hl_instruction"],
-                text="Plan: " + ex["metadata/ll_instruction"] + " Action: " + ex["metadata/target_action"],
-                style="android_control"
-            )
+                text="Plan: "
+                + ex["metadata/ll_instruction"]
+                + " Action: "
+                + ex["metadata/target_action"],
+                style="android_control",
+            ),
         ]
         example = dict(
             image=join(ANDROID_CONTROL_SRC, "images", ex["image"]),
@@ -267,7 +283,7 @@ class AndroidControl(DatasetBase):  # TODO needs a preparation script
                 target_box=ex["metadata/target_box"],
                 ll_instruction=ex["metadata/ll_instruction"],
                 hl_instruction=ex["metadata/hl_instruction"],
-            )
+            ),
         )
         if self.mode == "ll":
             example.update(ll)
@@ -325,16 +341,18 @@ class DocQaManual(DatasetBase):
                 for k in ["answers", "question_types"]:
                     assert k not in ex
                     ex[k] = []
-            out.append(dict(
-                image=join(DOCQA_SOURCE, ex["image"]),
-                question=ex["question"],
-                answers=ex.get("answers"),
-                metadata=dict(
-                    doc_id=ex["docId"],
-                    question_types=ex.get("question_types"),
-                    example_id=ex["questionId"],
-                ),
-            ))
+            out.append(
+                dict(
+                    image=join(DOCQA_SOURCE, ex["image"]),
+                    question=ex["question"],
+                    answers=ex.get("answers"),
+                    metadata=dict(
+                        doc_id=ex["docId"],
+                        question_types=ex.get("question_types"),
+                        example_id=ex["questionId"],
+                    ),
+                )
+            )
         return out
 
     def get(self, item, rng):
@@ -352,7 +370,9 @@ class ChartQa(DatasetBase):
             assert parts == "both"
             identified = "chart_qa_weighted"
         else:
-            identified = "chart_qa" if self.parts == "both" else f"chart_qa_{self.identifier}"
+            identified = (
+                "chart_qa" if self.parts == "both" else f"chart_qa_{self.identifier}"
+            )
         super().__init__(identified, split)
 
     def load(self):
@@ -374,10 +394,7 @@ class ChartQa(DatasetBase):
                         image=join(CHARTQA_SOURCE, split, "png", ex.pop("imgname")),
                         question=ex["query"],
                         answers=ex["label"],
-                        metadata=dict(
-                            is_human=part == "human",
-                            example_id=ex_id
-                        )
+                        metadata=dict(is_human=part == "human", example_id=ex_id),
                     )
                     examples.append(ex)
         return examples
@@ -388,8 +405,8 @@ class ChartQa(DatasetBase):
             is_human = ex["metadata"]["is_human"]
             # Weight to balanced human/augmented sets
             if is_human:
-                w = 2*20901/(20901+7398)
+                w = 2 * 20901 / (20901 + 7398)
             else:
-                w = 2*7398/(20901+7398)
+                w = 2 * 7398 / (20901 + 7398)
             ex["weight"] = w
         return ex

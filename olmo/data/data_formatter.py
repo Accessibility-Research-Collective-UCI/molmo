@@ -2,6 +2,7 @@
 
 For example, converting points to text, or applying prompt templates
 """
+
 import dataclasses
 import re
 from collections import Counter
@@ -18,83 +19,82 @@ GENERAL_PROMPTS_V1 = {
         "I have a question about this image, please answer it very briefly: {question}",
         "Question: {question} Short Answer:",
         "Question: {question}\nShort Answer:",
-        '{question}\nAnswer the question as briefly as possible.',
-        'Answer very briefly:\n{question}',
+        "{question}\nAnswer the question as briefly as possible.",
+        "Answer very briefly:\n{question}",
         'The question "{question}" can be answered using the image. A short answer is',
         "{question} Based on the image, respond to this question with a short answer:",
         "{question} Short answer:",
         "{question} A short answer to the question is",
         "Give a short, matter-of-fact answer to this question: {question}",
-        "Give me a simple, direct answer to this question, do not elaborate or explain your answer:\n{question}"
+        "Give me a simple, direct answer to this question, do not elaborate or explain your answer:\n{question}",
     ],
     "short_caption": [
-        'Caption the image with 1 or two sentences',
-        'Write a very short description of this image.',
-        'Briefly describe the image.',
-        'Look and this image, and then summarize it in a sentence or two.',
-        'Write a brief caption describing the image',
-        'Brief Caption:'
-        'A short image caption:',
-        'A short image description',
-        'Briefly describe the content of the image.',
-        'Can you give me one sentence summary of the picture?',
-        'How would you describe this image in a sentence or two?',
+        "Caption the image with 1 or two sentences",
+        "Write a very short description of this image.",
+        "Briefly describe the image.",
+        "Look and this image, and then summarize it in a sentence or two.",
+        "Write a brief caption describing the image",
+        "Brief Caption:A short image caption:",
+        "A short image description",
+        "Briefly describe the content of the image.",
+        "Can you give me one sentence summary of the picture?",
+        "How would you describe this image in a sentence or two?",
     ],
     "long_caption": [
-        'Describe this image.',
-        'Describe this image',
-        'describe the image',
-        'Write a long description of this image.',
-        'caption the picture',
-        'Caption',
-        'caption',
-        'Construct a long caption for this image',
-        'Generate a caption',
-        'Create a detailed caption',
-        'Write a long caption',
-        'Describe this image in detail',
-        'Describe this',
-        'describe this',
-        'Caption this',
-        'What can be seen in this image?',
-        'What do you see in the image?',
-        'Look at this photo carefully and then tell me about it in detail',
-        'Write a long description of this image',
-        'Tell me about this picture.',
-        'Write a paragraph about this image.',
-        'Look at this image carefully and then describe it in detail',
-        'Generate a long caption about this image.'
+        "Describe this image.",
+        "Describe this image",
+        "describe the image",
+        "Write a long description of this image.",
+        "caption the picture",
+        "Caption",
+        "caption",
+        "Construct a long caption for this image",
+        "Generate a caption",
+        "Create a detailed caption",
+        "Write a long caption",
+        "Describe this image in detail",
+        "Describe this",
+        "describe this",
+        "Caption this",
+        "What can be seen in this image?",
+        "What do you see in the image?",
+        "Look at this photo carefully and then tell me about it in detail",
+        "Write a long description of this image",
+        "Tell me about this picture.",
+        "Write a paragraph about this image.",
+        "Look at this image carefully and then describe it in detail",
+        "Generate a long caption about this image.",
     ],
     "long_caption_no_pointing": [
-        'Describe this image in detail, but without any pointing.',
-        'Write a long description of this image, do not produce any points.',
-        'Tell me about this picture, use plain text only.',
-        'Generate a plain text description of this caption',
+        "Describe this image in detail, but without any pointing.",
+        "Write a long description of this image, do not produce any points.",
+        "Tell me about this picture, use plain text only.",
+        "Generate a plain text description of this caption",
         "What is in this image?\nNo pointing\nGive lots of detail"
-        "Write a long caption.\nDo not use image coordinates\nOutput a full paragraph"
+        "Write a long caption.\nDo not use image coordinates\nOutput a full paragraph",
     ],
     "transcript": [
-        'Describe this image as if you are a person speaking',
-        'Imagine you are a person talking about this image. Generate a transcript of what you would say.',
+        "Describe this image as if you are a person speaking",
+        "Imagine you are a person talking about this image. Generate a transcript of what you would say.",
         "Generate an audio transcript of a person describing this image",
         "Create a transcript of a human describing this image out load",
         "Describe this in this style of a human talking",
     ],
     "refexp_pointing": [
-        'Where is the \"{refexp}\"?',
-        'Point to {refexp}',
-        'point at {refexp}',
-        'Find the {refexp}.',
-        'Which object in the image does \"{refexp}\" refer to?',
-        'Locate the object \"{refexp}\" refers to.',
-        'Point to the object that best matches the expression:\n{refexp}\n',
-        'What object could be described as: {refexp}.\nPoint:',
-        'Referring Expression: {refexp}.\nPoint:',
-        'Expression: {refexp}\nPoint to the refexp',
-        'Task: Point to the object that best matches the expression.\nExpression: {refexp}\nPoint:',
-        'Instruction: Locate the object that matches the expression by returning a point.\nReferring Expression: {refexp}\n',
-        'Help me find an object in this image by pointing to the {refexp}',
-        'What point of the image might the expression \'{refexp}\' refer to?',
+        'Where is the "{refexp}"?',
+        "Point to {refexp}",
+        "point at {refexp}",
+        "Find the {refexp}.",
+        'Which object in the image does "{refexp}" refer to?',
+        'Locate the object "{refexp}" refers to.',
+        "Point to the object that best matches the expression:\n{refexp}\n",
+        "What object could be described as: {refexp}.\nPoint:",
+        "Referring Expression: {refexp}.\nPoint:",
+        "Expression: {refexp}\nPoint to the refexp",
+        "Task: Point to the object that best matches the expression.\nExpression: {refexp}\nPoint:",
+        "Instruction: Locate the object that matches the expression by returning a point.\nReferring Expression: {refexp}\n",
+        "Help me find an object in this image by pointing to the {refexp}",
+        "What point of the image might the expression '{refexp}' refer to?",
     ],
     "plain": ["{question}"],
     "multiple_choice": [
@@ -108,11 +108,11 @@ GENERAL_PROMPTS_V1 = {
         "Question: {question}? Options: {options} Answer:",
         "Answer the question by selecting an answer options\nQuestion: {question}\nOptions: {options}",
         "{question}?\n{options}\nReturn only the letter of the correct answer",
-        "Help me answer this question: \"{question}\", by stating which of the following options is correct\n{options}."
+        'Help me answer this question: "{question}", by stating which of the following options is correct\n{options}.',
     ],
     "pointing": [
         "Point to {label}\nPlease say 'This isn't in the image.' if it is not in the image.",
-        "Point to all occurrences of \"{label}\"",
+        'Point to all occurrences of "{label}"',
         "Point to any {label} in the image",
         "Point to any {label} in the image.",
         "Point: Where are the {label}",
@@ -124,8 +124,8 @@ GENERAL_PROMPTS_V1 = {
         "If there are any {label} in the image? Show me where they are.",
         "Where are the {label}?",
         "Generate a list of points showing where the {label} are.",
-        "Find the \"{label}\".",
-        "Find a \"{label}\".",
+        'Find the "{label}".',
+        'Find a "{label}".',
         "Locate all {label}.",
         "Locate an {label}.",
         "Locate a {label}.",
@@ -192,7 +192,7 @@ GENERAL_PROMPTS_V1 = {
         "Point at the {label} and then count them.",
         "Point to all the visible {label} output the total count.",
         "Point to all the {label} visible and output the total count. \nPlease say 'This isn't in the image.' if it is not in the image.",
-        "Point to all occurrences of \"{label}\" and output the total count.",
+        'Point to all occurrences of "{label}" and output the total count.',
         "Show me where the {label} are and output the total count.",
         "Where are the {label}? How many are there?",
         "Generate list of points showing where the {label} are and output the total count.",
@@ -262,7 +262,7 @@ STYLE_TO_GENERAL_PROMPT = {
 
 def apply_keywords(prompt, example, keywords):
     for keyword in keywords:
-        res = prompt.split("{"+keyword+"}", maxsplit=2)
+        res = prompt.split("{" + keyword + "}", maxsplit=2)
         prompt = res[0] + example[keyword] + res[1]
     return prompt
 
@@ -273,11 +273,15 @@ def apply_keyword_prompt(prompts, example, rng, keywords=None, dbg=False):
         all_keywords = [sorted(re.findall("{([^{}]+)}", x)) for x in prompts]
         keywords = all_keywords[0]
         assert len(keywords) == len(set(keywords)), f"Repeated keywords in {keywords}"
-        assert all(keywords == x for x in all_keywords), f"Inconsistent keywords in prompts {all_keywords}"
+        assert all(keywords == x for x in all_keywords), (
+            f"Inconsistent keywords in prompts {all_keywords}"
+        )
         assert not any("{" not in word[1:-1] and "}" in word[1:-1] for word in keywords)
 
         for k in keywords:
-            assert k in example, f"Example missing expected field {k}, example={example}"
+            assert k in example, (
+                f"Example missing expected field {k}, example={example}"
+            )
 
     if dbg:
         prompt = prompts[0]
@@ -297,10 +301,13 @@ DEMO_STYLES = [
 @dataclasses.dataclass
 class DataFormatter:
     """Applies prompt templates and adds system prompts to construct text inputs/output"""
+
     prompt_templates: str = "none"  # How to template prompts for examples
     message_format: str = "none"  # How to format messages
     system_prompt: Optional[str] = None  # How to generate system prompts
-    always_start_with_space: bool = False  # Always include a leading space for the first bit of text
+    always_start_with_space: bool = (
+        False  # Always include a leading space for the first bit of text
+    )
     default_inference_len: int = 65  # Inference len for length-conditioned prompting
     select_answer: str = "best"  # How to select answer for questions with many answers
     debug: bool = False  # deterministic mode for debugging
@@ -309,25 +316,28 @@ class DataFormatter:
         if isinstance(scale, (tuple, list)):
             points /= np.array(scale)[None, :]
         else:
-            points *= (100/scale)
+            points *= 100 / scale
         points = [[round(x, 1), round(y, 1)] for x, y in points]
-        points.sort(key=lambda x: x[0]*10000 + x[1])
+        points.sort(key=lambda x: x[0] * 10000 + x[1])
         if len(points) == 1:
             x_str, y_str = points[0]
-            return f"<point x=\"{x_str:0.1f}\" y=\"{y_str:0.1f}\" alt=\"{alt_text}\">{label_text}</point>"
+            return f'<point x="{x_str:0.1f}" y="{y_str:0.1f}" alt="{alt_text}">{label_text}</point>'
         point_text = []
         for ix, (x, y) in enumerate(points, start=1):
-            point_text.append(f"x{ix}=\"{x:0.1f}\"")
-            point_text.append(f"y{ix}=\"{y:0.1f}\"")
+            point_text.append(f'x{ix}="{x:0.1f}"')
+            point_text.append(f'y{ix}="{y:0.1f}"')
         point_text = " ".join(point_text)
-        return f"<points {point_text} alt=\"{alt_text}\">{label_text}</points>"
+        return f'<points {point_text} alt="{alt_text}">{label_text}</points>'
 
     def format_annotated_text(self, answer, point_annotations):
         for point_annotation in point_annotations:
             parts = answer.split("<|POINT|>", maxsplit=1)
             point_text = self.points_to_text(
-                np.array(point_annotation["points"]), 100,
-                point_annotation["inline_text"], point_annotation["alt_text"])
+                np.array(point_annotation["points"]),
+                100,
+                point_annotation["inline_text"],
+                point_annotation["alt_text"],
+            )
             answer = parts[0] + point_text + parts[1]
         return answer
 
@@ -347,11 +357,13 @@ class DataFormatter:
                 raise NotImplementedError()
         if "point_scale" in example:
             # Points are already normalized
-            point_txt = self.points_to_text(points, example["point_scale"], label, label)
+            point_txt = self.points_to_text(
+                points, example["point_scale"], label, label
+            )
         else:
             # Points are in pixel coordinate
             h, w = example["image"].shape[:2]
-            point_txt = self.points_to_text(points, [w/100, h/100], label, label)
+            point_txt = self.points_to_text(points, [w / 100, h / 100], label, label)
 
         if style == "point_count":
             return f"Counting the {point_txt} shows a total of {len(points)}."
@@ -362,8 +374,10 @@ class DataFormatter:
         if "options" in example:
             prefixes = "abcdefg".upper()
             options = example["options"]
-            option_text = "\n".join(f"{prefix}: {opt}" for prefix, opt in zip(prefixes, options))
-            option_names = prefixes[:len(options)]
+            option_text = "\n".join(
+                f"{prefix}: {opt}" for prefix, opt in zip(prefixes, options)
+            )
+            option_names = prefixes[: len(options)]
         else:
             options = example["unlabelled_options"]
             option_text = "\n".join(options)
@@ -373,7 +387,11 @@ class DataFormatter:
             output = prefixes[example["answer_idx"]]
         else:
             output = None
-        return output, example["question"] + "\n" + option_text + "\n", dict(option_names=option_names)
+        return (
+            output,
+            example["question"] + "\n" + option_text + "\n",
+            dict(option_names=option_names),
+        )
 
     def select_vqa_answer(self, answers, rng):
         if answers is None or isinstance(answers, str):
@@ -407,7 +425,6 @@ class DataFormatter:
         return out
 
     def get_system_prompt(self, style, for_inference, messages, rng):
-
         # For eval only dataset
         if style == "eval_short_answer":
             style = "vqa2"
@@ -431,7 +448,9 @@ class DataFormatter:
             v2 = self.system_prompt == "style_and_length_v2"
             inference_len = self.default_inference_len
             n = None if inference_len is None else str(inference_len)
-            if n is not None and len(n) > 0:  # allow empty string to signal unconditioned
+            if (
+                n is not None and len(n) > 0
+            ):  # allow empty string to signal unconditioned
                 prefix = style + " " + n + ":"
             else:
                 prefix = style + " :"  # FIXME remove the space
@@ -440,7 +459,7 @@ class DataFormatter:
             if rng.random() > 0.10:
                 n = len(messages[-1])
                 n += int(rng.normal(scale=std))
-                prefix = style + " " + str(n//15) + ":"
+                prefix = style + " " + str(n // 15) + ":"
             else:
                 prefix = style + " :"  # FIXME remove the space
         else:
@@ -476,7 +495,9 @@ class DataFormatter:
                     else:
                         prompt = example["label_cased"]
                 output = self.format_points(example)
-            elif "question" in example and ("options" in example or "unlabelled_options" in example):
+            elif "question" in example and (
+                "options" in example or "unlabelled_options" in example
+            ):
                 output, prompt, metadata = self.format_options(example)
             elif "question" in example:
                 prompt = example["question"]
@@ -485,13 +506,15 @@ class DataFormatter:
 
         elif self.prompt_templates == "uber_model":
             if not isinstance(style, str):
-                assert style in ["ai2_diagram_no_letter", "ai2_diagram" ]
+                assert style in ["ai2_diagram_no_letter", "ai2_diagram"]
                 output, prompt, metadata = self.format_options(example)
             else:
                 # We template long captions and pointing since they are "demo" tasks, and use
                 # plain text for everything else
                 if style == "long_caption":
-                    prompt = apply_keyword_prompt(GENERAL_PROMPTS_V1["long_caption"], example, rng, dbg=self.debug)
+                    prompt = apply_keyword_prompt(
+                        GENERAL_PROMPTS_V1["long_caption"], example, rng, dbg=self.debug
+                    )
                 elif style in ["pointing", "point_count"]:
                     # output, prompt, metadata = self.format_points(example)
                     if "question" in example:
@@ -501,11 +524,18 @@ class DataFormatter:
                             prompt = example["label"].lower()
                         else:
                             prompt = example["label_cased"]
-                        prompt = apply_keyword_prompt(GENERAL_PROMPTS_V1[style], dict(example, label=prompt), rng, dbg=self.debug)
+                        prompt = apply_keyword_prompt(
+                            GENERAL_PROMPTS_V1[style],
+                            dict(example, label=prompt),
+                            rng,
+                            dbg=self.debug,
+                        )
                     output = self.format_points(example)
                 elif "prompt" in example:
                     prompt = example["prompt"]
-                elif "question" in example and ("options" in example or "unlabelled_options" in example):
+                elif "question" in example and (
+                    "options" in example or "unlabelled_options" in example
+                ):
                     output, prompt, metadata = self.format_options(example)
                 elif "question" in example:
                     prompt = example["question"]
@@ -520,14 +550,18 @@ class DataFormatter:
             elif "answer" in example:
                 output = example["answer"]
                 if "answer_annotations" in example:
-                    output = self.format_annotated_text(output, example["answer_annotations"])
+                    output = self.format_annotated_text(
+                        output, example["answer_annotations"]
+                    )
             elif "answer_with_points" in example:
                 output = example["answer_with_points"]
             elif "text" in example:
                 output = example["text"]
             else:
                 print(example)
-                raise ValueError("No output in example, if this is an inference-only task make sure `for_inference` is True")
+                raise ValueError(
+                    "No output in example, if this is an inference-only task make sure `for_inference` is True"
+                )
 
         return prompt, output, metadata
 
@@ -546,7 +580,9 @@ class DataFormatter:
             messages = message["messages"]
         elif isinstance(message, dict):
             # An example that requires a custom prompt
-            prompt, response, extra_metadata = self.get_user_prompt(message, is_training, for_inference=for_inference, rng=rng)
+            prompt, response, extra_metadata = self.get_user_prompt(
+                message, is_training, for_inference=for_inference, rng=rng
+            )
             if extra_metadata:
                 metadata.update(extra_metadata)
             if not for_inference:
@@ -579,9 +615,13 @@ class DataFormatter:
         """Returns a formatted example and example metadata"""
         if "message_list" in ex:
             # Does not support returning metadata, which is fine since we are not doing inference
-            return [self._format_example(msg, ex, is_training, for_inference, rng)[0]
-                    for msg in ex["message_list"]], None
+            return [
+                self._format_example(msg, ex, is_training, for_inference, rng)[0]
+                for msg in ex["message_list"]
+            ], None
         elif "messages" in ex:
-            return self._format_example(ex["messages"], ex, is_training, for_inference, rng)
+            return self._format_example(
+                ex["messages"], ex, is_training, for_inference, rng
+            )
         else:
             return self._format_example(ex, ex, is_training, for_inference, rng)

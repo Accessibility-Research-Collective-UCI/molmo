@@ -40,7 +40,9 @@ def flatten_dict(d: Dict) -> Dict[STKey, torch.Tensor]:
         elif isinstance(value, dict):
             value = flatten_dict(value)
             for inner_key, inner_value in value.items():
-                result[STKey((key,) + inner_key.keys, inner_key.value_is_pickled)] = inner_value
+                result[STKey((key,) + inner_key.keys, inner_key.value_is_pickled)] = (
+                    inner_value
+                )
         else:
             pickled = bytearray(pickle.dumps(value))
             pickled_tensor = torch.frombuffer(pickled, dtype=torch.uint8)
@@ -73,7 +75,9 @@ def state_dict_to_safetensors_file(state_dict: Dict, filename: PathOrStr):
     safetensors.torch.save_file(state_dict, filename)
 
 
-def safetensors_file_to_state_dict(filename: PathOrStr, map_location: Optional[str] = None) -> Dict:
+def safetensors_file_to_state_dict(
+    filename: PathOrStr, map_location: Optional[str] = None
+) -> Dict:
     if map_location is None:
         map_location = "cpu"
     state_dict = safetensors.torch.load_file(filename, device=map_location)

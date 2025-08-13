@@ -60,7 +60,6 @@ of vision encoding and integrating generative evaluations.
   - [**Molmo-7B-D**](https://huggingface.co/allenai/Molmo-7B-D-0924): our best 7B and demo model
   - [**Molmo-72B**](https://huggingface.co/allenai/Molmo-7B-D-0924): our best 72B model
 
-
 ## Installation
 
 We recommend using python 3.10.
@@ -75,7 +74,6 @@ pip install -e .[all]
 ```
 
 For training and evaluating MolmoE-1B, please install megablocks by running `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`.
-
 
 ## Huggingface Models and Logs
 
@@ -113,11 +111,12 @@ The core models in the Molmo family released so far are:
 
 W&B logs: [pre-training](https://wandb.ai/prior-ai2/molmo/reports/Molmo-Pre-training--VmlldzoxMDQwODE3OA), [fine-tuning](https://wandb.ai/prior-ai2/molmo/reports/Molmo-Fine-tuning--VmlldzoxMDQwOTQ4Mw)
 
-## Data Downloading and Setup 
-Molmo uses huggingface datasets for most data, therefore most 
+## Data Downloading and Setup
+
+Molmo uses huggingface datasets for most data, therefore most
 data will be stored in the default huggingface cache. See [here](https://huggingface.co/docs/huggingface_hub/guides/manage-cache)
 for how to set it. Some additional data is stored separately in the path
-set by `MOLMO_DATA_DIR`. 
+set by `MOLMO_DATA_DIR`.
 
 For example, if you want to store the data in `/data/molmo` you could set
 
@@ -146,11 +145,13 @@ Downloading the android control dataset requires additional dependencies
 since it requires parsing the original tfrecords.
 
 To download a specific dataset pass in the dataset name run:
+
 ```bash
 python3 scripts/download_data.py ChartQa --n_proc 12
 ```
 
 ## Visualizing Data
+
 Once downloaded, datasets can be visualized by using `scripts/dataset_visualize.py` script:
 
 ```bash
@@ -158,10 +159,11 @@ python3 scripts/dataset_visualize.py chart_qa /path/to/viz/dir
 ```
 
 ## Trained Models
+
 We release model weights both after pre-training and after fine-tuning in a format compatible
 with this codebase. The fine-tuned weights match the ones in the hugging face repos,
 but have a slightly different format. The config files are backwards-compatible with
-this repo, but also have a slightly different format. 
+this repo, but also have a slightly different format.
 
 <table>
   <tr>
@@ -196,14 +198,15 @@ the needed config file and model weights. For example:
 
 ```bash
 wget https://storage.googleapis.com/oe-training-public/Molmo-0924/Molmo-7B-D-0924.tar
-tar -xf Molmo-7B-D-0924.tar 
+tar -xf Molmo-7B-D-0924.tar
 ```
 
 ## Evaluation
-Evaluation is done with the `launch_scripts/eval_downstream.py` script. 
-FSDP can be used to evaluate large models, or for high-resolution processing. 
-Note that the vLLM version of Molmo will be significantly faster for inference, but most of 
-our numbers were reported using the results of this local evaluation. 
+
+Evaluation is done with the `launch_scripts/eval_downstream.py` script.
+FSDP can be used to evaluate large models, or for high-resolution processing.
+Note that the vLLM version of Molmo will be significantly faster for inference, but most of
+our numbers were reported using the results of this local evaluation.
 
 To eval on a single task pass the `task name`, or `task_name:split`:
 
@@ -220,6 +223,7 @@ torchrun --nproc-per-node 8 launch_scripts/eval_downstream.py Molmo-7B-D-0924 te
 The `--fsdp` flag will use FSDP which is needed for to avoid OOMs when using high resolution.
 
 To evaluate on our default eval set (including the 11 tasks in the paper):
+
 ```bash
 torchrun --nproc-per-node 8 launch_scripts/eval_downstream.py Molmo-7B-D-0924 low-res --save_to_checkpoint_dir
 torchrun --nproc-per-node 8 launch_scripts/eval_downstream.py Molmo-7B-D-0924 high-res --save_to_checkpoint_dir --high_res --fsdp --device_batch_size=2
@@ -231,15 +235,17 @@ re-formatting the prediction files and then submitting to test servers.
 To evaluate the 72B model with this codebase you will need to run on multiple nodes
 and might need to set `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`
 
-These scripts will save the metrics and predictions in the save directory. Future calls to the 
+These scripts will save the metrics and predictions in the save directory. Future calls to the
 eval script will re-use cached metrics if they exist, to overwrite these cached metrics use
 the `--overwrite` flag.
 
 ### Evaluation with VLMEvalkit
+
 Evaluation of the HF models is also supported via [open-compass/VLMEvalkit](https://github.com/open-compass/VLMEvalKit). Check [PR#648](https://github.com/open-compass/VLMEvalKit/pull/648) for supported prompts and evaluation settings to reproduce results from the paper.
 However a few datasets (e.g., PixMo-Count) are not supported.
 
 ## Pretrained Models for Initialization
+
 Training end-to-end requires downloading the pre-trained models used to initialize Molmo.
 This can be done with the script `scripts/convert_hf_to_molmo.py`
 
@@ -254,6 +260,7 @@ The model will be downloaded from huggingface, converted into a compatible forma
 and then saved into the `MOLMO_DATA_DIR` directory.
 
 ## Pre-Training
+
 The main training script is `scripts/train.py`. To train a model you can either construct a config
 file to pass to it, or call one of the higher-level helper scripts in `launch_scripts` which
 will construct a low-level config from some higher-level settings and then invoke the train script for you.
@@ -276,6 +283,7 @@ To run without wandb, use:
 --wandb=null --save_folder=/path/to/save/folder`
 
 ## Multitask Training
+
 Multitask training can be done with `launch_scripts/multtask_train.py`, for example:
 
 `WANDB_API_KEY=key torchrun --nproc-per-node=8 launch_scripts/train_multitask_model.py 3.2-synthetic /path/to/checkpoint
@@ -289,23 +297,25 @@ model checkpoint to start from, typically a dense captioning model.
 To launch a debug run:
 
 `
-torchrun --nproc-per-node=1 launch_scripts/train_multitask_model.py debug debug 
+torchrun --nproc-per-node=1 launch_scripts/train_multitask_model.py debug debug
 --save_folder=dbg --save_overwrite
 `
 
 ## Training Changes
+
 There are minor differences between the published Molmo models that we trained and what this repo will produce.
 
 - Image URLs might fail to download, which will cause the amount of data to shrink slightly
-- PixMo-Clocks is not used by default, it requires a more complex download script that 
+- PixMo-Clocks is not used by default, it requires a more complex download script that
 we are still considering how to port.
 
 ## Multi-Node
-Execute the `torchrun` commands on each node with the [appropriate args](https://pytorch.org/tutorials/intermediate/ddp_series_multinode.html)
-should allow multi-node training or evaluation. 
 
-We recommend ensuring the data is downloaded and then using the environment variable 
-`HF_DATASETS_OFFLINE=1` to ensure the nodes don't flood HF with requests as they all initialize 
+Execute the `torchrun` commands on each node with the [appropriate args](https://pytorch.org/tutorials/intermediate/ddp_series_multinode.html)
+should allow multi-node training or evaluation.
+
+We recommend ensuring the data is downloaded and then using the environment variable
+`HF_DATASETS_OFFLINE=1` to ensure the nodes don't flood HF with requests as they all initialize
 and then potentially get rate limited.
 
 ## Citation

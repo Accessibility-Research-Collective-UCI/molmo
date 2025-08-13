@@ -3,20 +3,26 @@ import argparse
 import torch
 from transformers import AutoModelForCausalLM
 
-from olmo import Molmo, ModelConfig, ActivationType, LayerNormType, TokenizerConfig, \
-    VisionBackboneConfig
+from olmo import (
+    Molmo,
+    ModelConfig,
+    ActivationType,
+    LayerNormType,
+    TokenizerConfig,
+    VisionBackboneConfig,
+)
 from olmo.config import ImagePooling2DType
 
 
 def load_hf_model(repo_id) -> Molmo:
     if repo_id == "allenai/Molmo-7B-D-0924":
-        tokenizer = 'allenai/OLMoE-1B-7B-0924'
+        tokenizer = "allenai/OLMoE-1B-7B-0924"
     else:
         raise NotImplementedError(repo_id)
 
     model = AutoModelForCausalLM.from_pretrained(
-        repo_id,
-        trust_remote_code=True, torch_dtype=torch.float32)
+        repo_id, trust_remote_code=True, torch_dtype=torch.float32
+    )
 
     cfg = model.config
     model_cfg = ModelConfig(
@@ -80,7 +86,7 @@ def load_hf_model(repo_id) -> Molmo:
             attention_dropout=0.0,
             residual_dropout=0.0,
             initializer_range=0.02,
-        )
+        ),
     )
 
     olmo_model = Molmo(model_cfg, init_params=False)
@@ -98,5 +104,5 @@ def convert_cli():
     load_hf_model(args.repo_id)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     load_hf_model("allenai/Molmo-7B-D-0924")

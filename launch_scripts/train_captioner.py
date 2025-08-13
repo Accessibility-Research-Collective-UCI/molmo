@@ -10,10 +10,24 @@ from launch_scripts.utils import DEBUG_MODEL, VISION_BACKBONES, LLMS, DEFAULT_LO
 from olmo.torch_util import get_world_size
 from scripts.train import main as train
 
-from olmo import TrainConfig, WandbConfig, DataConfig, OptimizerConfig, OptimizerType, \
-    SchedulerConfig, SchedulerType, FSDPConfig, FSDPPrecision, FSDPWrapStrategy
-from olmo.config import BatchDivisor, SpeedMonitorConfig, ActivationCheckpointingStrategy, \
-    DatasetEvaluatorConfig
+from olmo import (
+    TrainConfig,
+    WandbConfig,
+    DataConfig,
+    OptimizerConfig,
+    OptimizerType,
+    SchedulerConfig,
+    SchedulerType,
+    FSDPConfig,
+    FSDPPrecision,
+    FSDPWrapStrategy,
+)
+from olmo.config import (
+    BatchDivisor,
+    SpeedMonitorConfig,
+    ActivationCheckpointingStrategy,
+    DatasetEvaluatorConfig,
+)
 from olmo.util import (
     add_cached_path_clients,
     clean_opt,
@@ -44,7 +58,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(prog="Train a captioner")
     parser.add_argument("llm", choices=["debug"] + list(LLMS.keys()))
-    parser.add_argument("--vision_backbone", choices=list(VISION_BACKBONES.keys()), default="openai")
+    parser.add_argument(
+        "--vision_backbone", choices=list(VISION_BACKBONES.keys()), default="openai"
+    )
     parser.add_argument("--global_batch_size", default=128, type=int)
     parser.add_argument("--n_eval_examples", default=2048, type=int)
     parser.add_argument("--device_eval_batch_size", default=4, type=int)
@@ -59,7 +75,7 @@ if __name__ == "__main__":
         if args.llm == "debug-12crop":
             model_cfg.max_crops = 12
             model_cfg.crop_mode = "overlap-and-resize-c2"
-        model_cfg.system_prompt_kind = 'style_and_length'
+        model_cfg.system_prompt_kind = "style_and_length"
 
         global_batch_size = 8
         model_init = None
@@ -79,9 +95,11 @@ if __name__ == "__main__":
             LLMS[args.llm],
             vision_backbone=VISION_BACKBONES[args.vision_backbone],
             llm_load_path=DEFAULT_LOAD_PATHS.get(args.llm, omegaconf.MISSING),
-            vit_load_path=DEFAULT_LOAD_PATHS.get(args.vision_backbone, omegaconf.MISSING),
+            vit_load_path=DEFAULT_LOAD_PATHS.get(
+                args.vision_backbone, omegaconf.MISSING
+            ),
             crop_mode="overlap-and-resize-c2",
-            system_prompt_kind='style_and_length',
+            system_prompt_kind="style_and_length",
             residual_dropout=0.0,
             response_residual_dropout=0.1,
             max_crops=12,
@@ -92,7 +110,8 @@ if __name__ == "__main__":
 
     evaluator = DatasetEvaluatorConfig(
         label="val",
-        subset_num_batches=eval_examples//(args.device_eval_batch_size*get_world_size()),
+        subset_num_batches=eval_examples
+        // (args.device_eval_batch_size * get_world_size()),
         data=DataConfig(
             dataset=args.dataset,
             for_inference=False,
@@ -113,12 +132,14 @@ if __name__ == "__main__":
         save_folder="debug_run" if debug else omegaconf.MISSING,
         seed=6198,
         dry_run=False,
-        wandb=None if debug else WandbConfig(
+        wandb=None
+        if debug
+        else WandbConfig(
             name="${run_name}",
             project="${oc.env:WANDB_PROJECT}",
             group=None,
             entity="${oc.env:WANDB_ENTITY}",
-            log_interval=log_interval
+            log_interval=log_interval,
         ),
         model=model_cfg,
         data=DataConfig(
@@ -151,7 +172,7 @@ if __name__ == "__main__":
             connector_eps=1e-6,
             vit_eps=1e-6,
             llm_eps=1e-6,
-            metrics_log_interval=20
+            metrics_log_interval=20,
         ),
         scheduler=SchedulerConfig(
             name=SchedulerType.multimodal,
@@ -159,12 +180,12 @@ if __name__ == "__main__":
             vit_t_warmup=2000,
             llm_t_warmup=2000,
             alpha_f=0.1,
-            warmup_min_lr=0.0
+            warmup_min_lr=0.0,
         ),
         fsdp=FSDPConfig(
             use_orig_params=True,
             wrapping_strategy=FSDPWrapStrategy.by_block_and_size,
-            precision=FSDPPrecision.float
+            precision=FSDPPrecision.float,
         ),
         load_path=None,
         initial_model_checkpoint=None,
@@ -194,12 +215,9 @@ if __name__ == "__main__":
             replace(
                 evaluator,
                 label="caption_val",
-                data=replace(
-                    evaluator.data,
-                    dataset="pixmo_cap"
-                )
-            )
-        ]
+                data=replace(evaluator.data, dataset="pixmo_cap"),
+            ),
+        ],
     )
 
     conf = OmegaConf.create(cfg)
@@ -208,4 +226,3 @@ if __name__ == "__main__":
         conf = OmegaConf.merge(conf, OmegaConf.from_dotlist(overrides))
     cfg = cast(TrainConfig, OmegaConf.to_object(conf))
     train(cfg)
-

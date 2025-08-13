@@ -14,26 +14,32 @@ class TabMwpBuilder(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         return datasets.DatasetInfo(
-            features=datasets.Features({
-                'image': datasets.Image(),
-                "question": datasets.Value("string"),
-                "answer": datasets.Value("string"),
-                "choices": datasets.features.Sequence(datasets.Value("string")),
-                "table_title": datasets.Value("string"),
-                "table": datasets.Value("string"),
-                "column_num": datasets.Value("int64"),
-                "row_num": datasets.Value("int64"),
-                "solution": datasets.Value("string"),
-                "ques_type": datasets.Value("string"),
-                "ans_type": datasets.Value("string"),
-                "unit": datasets.Value("string"),
-                "grade": datasets.Value("int32"),
-                "example_id": datasets.Value("int64"),
-            }),
+            features=datasets.Features(
+                {
+                    "image": datasets.Image(),
+                    "question": datasets.Value("string"),
+                    "answer": datasets.Value("string"),
+                    "choices": datasets.features.Sequence(datasets.Value("string")),
+                    "table_title": datasets.Value("string"),
+                    "table": datasets.Value("string"),
+                    "column_num": datasets.Value("int64"),
+                    "row_num": datasets.Value("int64"),
+                    "solution": datasets.Value("string"),
+                    "ques_type": datasets.Value("string"),
+                    "ans_type": datasets.Value("string"),
+                    "unit": datasets.Value("string"),
+                    "grade": datasets.Value("int32"),
+                    "example_id": datasets.Value("int64"),
+                }
+            ),
         )
 
-    def _split_generators(self, dl_manager: datasets.DownloadManager) -> List[datasets.SplitGenerator]:
-        source = dl_manager.download_and_extract("https://codeload.github.com/lupantech/PromptPG/legacy.zip/main")
+    def _split_generators(
+        self, dl_manager: datasets.DownloadManager
+    ) -> List[datasets.SplitGenerator]:
+        source = dl_manager.download_and_extract(
+            "https://codeload.github.com/lupantech/PromptPG/legacy.zip/main"
+        )
         return [
             datasets.SplitGenerator(name=k, gen_kwargs=dict(source=source, split=k))
             for k in ["train", "dev", "test"]

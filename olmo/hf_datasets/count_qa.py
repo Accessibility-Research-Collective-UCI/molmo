@@ -17,6 +17,7 @@ class CountQaBuilder(datasets.GeneratorBasedBuilder):
     the natural language questions from the PaliGemma paper. Script adapted from:
     https://github.com/google-research/big_vision/blob/46b2456f54b9d4f829d1925b78943372b376153d/big_vision/datasets/countbenchqa/countbenchqa.py#L21
     """
+
     VERSION = datasets.Version("1.0.0")
 
     def __init__(self, *args, **kwargs):
@@ -24,48 +25,54 @@ class CountQaBuilder(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         return datasets.DatasetInfo(
-            features=datasets.Features({
-                'image': datasets.Image(),
-                "question": datasets.Value("string"),
-                "count": datasets.Value("int32"),
-                "example_id": datasets.Value("int32"),
-                "image_url": datasets.Value("string"),
-            }),
+            features=datasets.Features(
+                {
+                    "image": datasets.Image(),
+                    "question": datasets.Value("string"),
+                    "count": datasets.Value("int32"),
+                    "example_id": datasets.Value("int32"),
+                    "image_url": datasets.Value("string"),
+                }
+            ),
         )
 
-    def _split_generators(self, dl_manager: datasets.DownloadManager) -> List[datasets.SplitGenerator]:
-        qas_src, parquet = dl_manager.download(
-            [QAS_URL, PARQUET_URL]
-        )
+    def _split_generators(
+        self, dl_manager: datasets.DownloadManager
+    ) -> List[datasets.SplitGenerator]:
+        qas_src, parquet = dl_manager.download([QAS_URL, PARQUET_URL])
         return [
-            datasets.SplitGenerator(name="test", gen_kwargs=dict(qas=qas_src, parquet=parquet))
+            datasets.SplitGenerator(
+                name="test", gen_kwargs=dict(qas=qas_src, parquet=parquet)
+            )
         ]
 
     def _generate_examples(self, qas, parquet):
         df = pd.read_parquet(parquet)
         with open(join(qas)) as f:
             questions = json.load(f)
-        df['question'] = [x["question"] for x in questions]
+        df["question"] = [x["question"] for x in questions]
 
         out = []
         for idx, row in df.iterrows():
             # Some entries have no image.
-            if row['image'] is None:
+            if row["image"] is None:
                 continue
-            image_bytes = io.BytesIO(row['image']['bytes'])
+            image_bytes = io.BytesIO(row["image"]["bytes"])
             image = np.array(Image.open(image_bytes))
             if len(image.shape) != 3:
                 continue  # Filter out one bad image.
 
-            yield idx, {
-                'image': image,
-                'question': row['question'],
-                'count': row['number'],
-                'example_id': idx,
-                'image_url': row['image_url'],
-            }
+            yield (
+                idx,
+                {
+                    "image": image,
+                    "question": row["question"],
+                    "count": row["number"],
+                    "example_id": idx,
+                    "image_url": row["image_url"],
+                },
+            )
 
 
 if __name__ == "__main__":
     CountQaBuilder().download_and_prepare()
-

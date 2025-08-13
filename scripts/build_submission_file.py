@@ -2,7 +2,7 @@ import argparse
 import json
 from collections import Counter
 
-import  tensorflow.io.gfile as gfile
+import tensorflow.io.gfile as gfile
 
 
 def main():
@@ -33,5 +33,5 @@ def main():
         json.dump(converted, f)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

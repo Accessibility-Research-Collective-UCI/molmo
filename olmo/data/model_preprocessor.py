@@ -39,7 +39,7 @@ def load_image(image_path):
             image = image_path.convert("RGB")
         try:
             image = ImageOps.exif_transpose(image)
-        except Exception as e:
+        except Exception:
             pass
         return np.array(image)
     elif isinstance(image_path, np.ndarray):
@@ -58,7 +58,7 @@ def resize_and_pad(
     is_training=False,
     resize_method="torch-bilinear",
     pad_value=0,
-    rng=np.random
+    rng=np.random,
 ):
     """Resize an image while padding to preserve uts aspect ratio."""
     desired_height, desired_width = desired_output_size
@@ -76,8 +76,11 @@ def resize_and_pad(
         # This how the original training code did resizing, it can produce slightly different
         # results then using torch resize so we keep it just in case
         import tensorflow as tf
+
         if resize_method == "tensorflow-random" and is_training:
-            resize_methods = sorted([k for k in tf.image.ResizeMethod.__dict__.keys() if k.isupper()])
+            resize_methods = sorted(
+                [k for k in tf.image.ResizeMethod.__dict__.keys() if k.isupper()]
+            )
             mode = resize_methods[rng.randint(len(resize_methods))]
             mode = getattr(tf.image.ResizeMethod, mode)
         else:
@@ -93,14 +96,23 @@ def resize_and_pad(
         image = image.numpy()
     elif resize_method in ["torch-bilinear", "torch-rng"]:
         image = torch.permute(torch.from_numpy(image), [2, 0, 1])
-        image = convert_image_dtype(image)  # resize in float32 to match the training code
-        if resize_method == "torch-rng"  and is_training:
-            options = [InterpolationMode.BILINEAR, InterpolationMode.NEAREST_EXACT,
-                       InterpolationMode.BICUBIC, InterpolationMode.LANCZOS, InterpolationMode.HAMMING]
+        image = convert_image_dtype(
+            image
+        )  # resize in float32 to match the training code
+        if resize_method == "torch-rng" and is_training:
+            options = [
+                InterpolationMode.BILINEAR,
+                InterpolationMode.NEAREST_EXACT,
+                InterpolationMode.BICUBIC,
+                InterpolationMode.LANCZOS,
+                InterpolationMode.HAMMING,
+            ]
             mode = options[rng.randint(len(options))]
         else:
             mode = InterpolationMode.BILINEAR
-        image = torchvision.transforms.Resize([scaled_height, scaled_width], mode, antialias=True)(image)
+        image = torchvision.transforms.Resize(
+            [scaled_height, scaled_width], mode, antialias=True
+        )(image)
         image = torch.clip(image, 0.0, 1.0)
         image = torch.permute(image, [1, 2, 0]).numpy()
     else:
@@ -111,7 +123,7 @@ def resize_and_pad(
     padding = [
         [top_pad, desired_height - scaled_height - top_pad],
         [left_pad, desired_width - scaled_width - left_pad],
-        [0, 0]
+        [0, 0],
     ]
     image_mask = np.pad(np.ones_like(image[:, :, 0], dtype=bool), padding[:2])
     image = np.pad(image, padding, constant_values=pad_value)
@@ -122,12 +134,16 @@ def metaclip_resize(image, desired_output_size):
     image = torch.permute(torch.from_numpy(image), [2, 0, 1])
     if torch.is_floating_point(image):
         image = torchvision.transforms.Resize(
-            desired_output_size, InterpolationMode.BICUBIC, antialias=True)(image)
+            desired_output_size, InterpolationMode.BICUBIC, antialias=True
+        )(image)
         image = torch.clip(image, 0.0, 1.0)
     else:
-        assert image.dtype == torch.uint8, "Expected float images or uint8 images, but got {}".format(image.dtype)
+        assert image.dtype == torch.uint8, (
+            "Expected float images or uint8 images, but got {}".format(image.dtype)
+        )
         image = torchvision.transforms.Resize(
-            desired_output_size, InterpolationMode.BICUBIC, antialias=True)(image)
+            desired_output_size, InterpolationMode.BICUBIC, antialias=True
+        )(image)
         image = image.to(torch.float32)
         image = torch.clip(image, 0, 255)
         image = image / 255.0
@@ -152,7 +168,11 @@ def siglip_resize_and_pad(
         )(image)
         resized = torch.clip(resized, 0.0, 1.0).to(dtype)
     else:
-        assert image.dtype == torch.uint8, "SigLIP expects float images or uint8 images, but got {}".format(image.dtype)
+        assert image.dtype == torch.uint8, (
+            "SigLIP expects float images or uint8 images, but got {}".format(
+                image.dtype
+            )
+        )
         in_min = 0.0
         in_max = 255.0
         resized = torchvision.transforms.Resize(
@@ -167,7 +187,7 @@ def siglip_resize_and_pad(
 
     resized = torch.permute(resized, [1, 2, 0]).numpy()
     image_mask = np.ones_like(resized[:, :, 0], dtype=np.bool_)
-    
+
     return resized, image_mask
 
 
@@ -185,7 +205,11 @@ def dino_resize_and_pad(
         )(image)
         resized = torch.clip(resized, 0.0, 1.0).to(torch.float32)
     else:
-        assert image.dtype == torch.uint8, "DINOv2 expects float images or uint8 images, but got {}".format(image.dtype)
+        assert image.dtype == torch.uint8, (
+            "DINOv2 expects float images or uint8 images, but got {}".format(
+                image.dtype
+            )
+        )
         resized = torchvision.transforms.Resize(
             desired_output_size,
             InterpolationMode.BICUBIC,
@@ -193,7 +217,7 @@ def dino_resize_and_pad(
         )(image)
         resized = torch.clip(resized, 0, 255).to(torch.float32)
         resized = resized / 255.0
-    
+
     resized = torch.permute(resized, [1, 2, 0]).numpy()
     image_mask = np.ones_like(resized[:, :, 0], dtype=np.bool_)
 
@@ -207,10 +231,10 @@ def select_tiling(h, w, patch_size, max_num_crops):
     tilings = []
     for i in range(1, max_num_crops + 1):
         for j in range(1, max_num_crops + 1):
-            if i*j <= max_num_crops:
+            if i * j <= max_num_crops:
                 tilings.append((i, j))
     # sort so argmin and argmax favour smaller tilings in the event of a tie
-    tilings.sort(key=lambda x: (x[0]*x[1], x[0]))
+    tilings.sort(key=lambda x: (x[0] * x[1], x[0]))
     candidate_tilings = np.array(tilings, dtype=np.int32)  # [n_resolutions, 2]
     candidate_resolutions = candidate_tilings * patch_size  # [n_resolutions, 2]
 
@@ -220,9 +244,11 @@ def select_tiling(h, w, patch_size, max_num_crops):
     # The original size can be zero in rare cases if the image is smaller than the margin
     # In those cases letting the scale become infinite means the tiling is based on the
     # other side, or falls back to the smallest tiling
-    with np.errstate(divide='ignore'):
-        required_scale_d = candidate_resolutions.astype(np.float32) / original_size,
-    required_scale = np.min(required_scale_d, axis=-1, keepdims=True)  # [n_resolutions, 1]
+    with np.errstate(divide="ignore"):
+        required_scale_d = (candidate_resolutions.astype(np.float32) / original_size,)
+    required_scale = np.min(
+        required_scale_d, axis=-1, keepdims=True
+    )  # [n_resolutions, 1]
     if np.all(required_scale < 1):
         # We are forced to downscale, so try to minimize the amount of downscaling
         ix = np.argmax(required_scale)
@@ -237,18 +263,18 @@ def pixels_to_patches(array, patch_size):
     """Reshape an image of [h, w, 3] -> [n_patches, pixels_per_patch]"""
     if len(array.shape) == 3:
         w, h, c = array.shape
-        h_patches = h//patch_size
-        w_patches = w//patch_size
+        h_patches = h // patch_size
+        w_patches = w // patch_size
         array = np.reshape(array, [h_patches, patch_size, w_patches, patch_size, c])
         array = np.transpose(array, [0, 2, 1, 3, 4])
-        array = np.reshape(array, [h_patches*w_patches, patch_size*patch_size*c])
+        array = np.reshape(array, [h_patches * w_patches, patch_size * patch_size * c])
     else:
         w, h = array.shape
-        h_patches = h//patch_size
-        w_patches = w//patch_size
+        h_patches = h // patch_size
+        w_patches = w // patch_size
         array = np.reshape(array, [h_patches, patch_size, w_patches, patch_size])
         array = np.transpose(array, [0, 2, 1, 3])
-        array = np.reshape(array, [h_patches*w_patches, patch_size*patch_size])
+        array = np.reshape(array, [h_patches * w_patches, patch_size * patch_size])
     return array
 
 
@@ -256,19 +282,27 @@ def batch_pixels_to_patches(array, patch_size):
     """Reshape images of [n_images, h, w, 3] -> [n_images, n_patches, pixels_per_patch]"""
     if len(array.shape) == 3:
         n_crops, w, h = array.shape
-        h_patches = h//patch_size
-        w_patches = w//patch_size
-        array = np.reshape(array, [n_crops, h_patches, patch_size, w_patches, patch_size])
+        h_patches = h // patch_size
+        w_patches = w // patch_size
+        array = np.reshape(
+            array, [n_crops, h_patches, patch_size, w_patches, patch_size]
+        )
         array = np.transpose(array, [0, 1, 3, 2, 4])
-        array = np.reshape(array, [n_crops, h_patches*w_patches, patch_size*patch_size])
+        array = np.reshape(
+            array, [n_crops, h_patches * w_patches, patch_size * patch_size]
+        )
         return array
     else:
         n_crops, w, h, c = array.shape
-        h_patches = h//patch_size
-        w_patches = w//patch_size
-        array = np.reshape(array, [n_crops, h_patches, patch_size, w_patches, patch_size, c])
+        h_patches = h // patch_size
+        w_patches = w // patch_size
+        array = np.reshape(
+            array, [n_crops, h_patches, patch_size, w_patches, patch_size, c]
+        )
         array = np.transpose(array, [0, 1, 3, 2, 4, 5])
-        array = np.reshape(array, [n_crops, h_patches*w_patches, patch_size*patch_size*c])
+        array = np.reshape(
+            array, [n_crops, h_patches * w_patches, patch_size * patch_size * c]
+        )
         return array
 
 
@@ -278,6 +312,7 @@ class MultiModalPreprocessor:
     Converts text/images inputs into tensors that can be used in the forward method
     for the a model
     """
+
     tokenizer: Any
     loss_token_weighting: Optional[str] = None
 
@@ -317,7 +352,9 @@ class MultiModalPreprocessor:
             image -= np.array(OPENAI_CLIP_MEAN, dtype=np.float32)[None, None, :]
             image /= np.array(OPENAI_CLIP_STD, dtype=np.float32)[None, None, :]
         elif self.normalize == "siglip":
-            image = np.asarray(-1.0, dtype=np.float32) + image * np.asarray(2.0, dtype=np.float32)
+            image = np.asarray(-1.0, dtype=np.float32) + image * np.asarray(
+                2.0, dtype=np.float32
+            )
         elif self.normalize == "dino":
             image -= np.array([0.485, 0.456, 0.406], dtype=np.float32)[None, None, :]
             image /= np.array([0.229, 0.224, 0.225], dtype=np.float32)[None, None, :]
@@ -335,14 +372,16 @@ class MultiModalPreprocessor:
         else:
             resize = "torch-bilinear" if self.resize == "default" else self.resize
             return resize_and_pad(
-                image, output_size, pad_value=self.pad_value, rng=rng, is_training=is_training,
-                resize_method=resize)
+                image,
+                output_size,
+                pad_value=self.pad_value,
+                rng=rng,
+                is_training=is_training,
+                resize_method=resize,
+            )
 
     def image_to_patches_and_tokens(
-        self,
-        image: ImageInput,
-        is_training=False,
-        rng=None
+        self, image: ImageInput, is_training=False, rng=None
     ):
         max_crops = self.max_crops
         overlap_margins = self.overlap_margins
@@ -363,18 +402,20 @@ class MultiModalPreprocessor:
         crop_size = base_image_input_size[0]
 
         if self.crop_mode == "resize":
-            resized, img_mask = self.resize_image(image, base_image_input_size, is_training, rng)
+            resized, img_mask = self.resize_image(
+                image, base_image_input_size, is_training, rng
+            )
             resized = self._normalize(resized)
             patches = pixels_to_patches(resized, image_patch_size)
             img_mask = pixels_to_patches(img_mask, image_patch_size)
 
             per_row = np.full(
-                (image_token_length_w,),
-                self.image_patch_token_id,
-                dtype=np.int32
+                (image_token_length_w,), self.image_patch_token_id, dtype=np.int32
             )
             if self.use_col_tokens:
-                per_row = np.concatenate([per_row, [self.image_col_token_id]], 0, dtype=np.int32)
+                per_row = np.concatenate(
+                    [per_row, [self.image_col_token_id]], 0, dtype=np.int32
+                )
             extra_tokens = np.tile(per_row, [image_token_length_h])
             joint = [
                 [self.image_start_token_id],
@@ -387,11 +428,23 @@ class MultiModalPreprocessor:
             # Discard this many patches from the (left/top, right/bottom) of crops
             left_margin, right_margin = overlap_margins
             # Required for compatibility with image pooling
-            assert left_margin % self.image_pooling_w == 0 and right_margin % self.image_pooling_w == 0
-            assert left_margin % self.image_pooling_h == 0 and right_margin % self.image_pooling_h == 0
-            total_margin_pixels = base_image_input_d*(right_margin + left_margin)  # pixels removed per dim
-            crop_patches = base_image_input_size[0] // base_image_input_d  # patches per crop dim
-            crop_window_patches = crop_patches - (right_margin + left_margin)  # usable patches
+            assert (
+                left_margin % self.image_pooling_w == 0
+                and right_margin % self.image_pooling_w == 0
+            )
+            assert (
+                left_margin % self.image_pooling_h == 0
+                and right_margin % self.image_pooling_h == 0
+            )
+            total_margin_pixels = base_image_input_d * (
+                right_margin + left_margin
+            )  # pixels removed per dim
+            crop_patches = (
+                base_image_input_size[0] // base_image_input_d
+            )  # patches per crop dim
+            crop_window_patches = crop_patches - (
+                right_margin + left_margin
+            )  # usable patches
             crop_window_size = crop_window_patches * base_image_input_d
 
             # Decide how to tile the image, to account for the overlap margins we compute the tiling
@@ -400,13 +453,16 @@ class MultiModalPreprocessor:
                 original_image_h - total_margin_pixels,
                 original_image_w - total_margin_pixels,
                 crop_window_size,
-                max_crops
+                max_crops,
             )
             src, img_mask = self.resize_image(
                 image,
-                [tiling[0]*crop_window_size+total_margin_pixels, tiling[1]*crop_window_size+total_margin_pixels],
+                [
+                    tiling[0] * crop_window_size + total_margin_pixels,
+                    tiling[1] * crop_window_size + total_margin_pixels,
+                ],
                 is_training,
-                rng
+                rng,
             )
             src = self._normalize(src)
 
@@ -419,12 +475,16 @@ class MultiModalPreprocessor:
 
             # We assume hxw pooling, but can allow padding the right/bottom with extra
             # patches if the number of patches per side is not divisible by h/w
-            assert (crop_patches + self.image_pooling_h - 1) // self.image_pooling_h == image_token_length_h
-            assert (crop_patches + self.image_pooling_w - 1) // self.image_pooling_w == image_token_length_w
+            assert (
+                crop_patches + self.image_pooling_h - 1
+            ) // self.image_pooling_h == image_token_length_h
+            assert (
+                crop_patches + self.image_pooling_w - 1
+            ) // self.image_pooling_w == image_token_length_w
             on = 0
             on_patch = 0
             for i in range(tiling[0]):
-                y0 = i*crop_window_size
+                y0 = i * crop_window_size
                 if i == 0:
                     crop_y0 = 0
                 else:
@@ -433,10 +493,10 @@ class MultiModalPreprocessor:
                 crop_h = image_base_patch_h - (right_margin + left_margin)
                 if i == 0:
                     crop_h += left_margin
-                if i == (tiling[0]-1):
+                if i == (tiling[0] - 1):
                     crop_h += right_margin
                 for j in range(tiling[1]):
-                    x0 = j*crop_window_size
+                    x0 = j * crop_window_size
                     if j == 0:
                         crop_x0 = 0
                     else:
@@ -445,26 +505,35 @@ class MultiModalPreprocessor:
                     crop_w = image_base_patch_w - (right_margin + left_margin)
                     if j == 0:
                         crop_w += left_margin
-                    if j == (tiling[1]-1):
+                    if j == (tiling[1] - 1):
                         crop_w += right_margin
 
-                    pooled_w = (crop_w + self.image_pooling_w - 1) // self.image_pooling_w
-                    pooled_h = (crop_h + self.image_pooling_h - 1) // self.image_pooling_h
+                    pooled_w = (
+                        crop_w + self.image_pooling_w - 1
+                    ) // self.image_pooling_w
+                    pooled_h = (
+                        crop_h + self.image_pooling_h - 1
+                    ) // self.image_pooling_h
                     after_padding_width = image_token_length_w - pooled_w - crop_x0
                     after_padding_height = image_token_length_h - pooled_h - crop_y0
                     patch_ordering_arr.append(
                         np.pad(
                             np.reshape(
-                                np.arange(on, on+pooled_h*pooled_w, dtype=np.int32),
-                                (pooled_h, pooled_w)),
-                            [[crop_y0, after_padding_height], [crop_x0, after_padding_width]],
-                            constant_values=-1, mode='constant'
+                                np.arange(on, on + pooled_h * pooled_w, dtype=np.int32),
+                                (pooled_h, pooled_w),
+                            ),
+                            [
+                                [crop_y0, after_padding_height],
+                                [crop_x0, after_padding_width],
+                            ],
+                            constant_values=-1,
+                            mode="constant",
                         )
                     )
-                    patches_arr.append(src[y0:y0+crop_size, x0:x0+crop_size])
-                    mask_arr.append(img_mask[y0:y0+crop_size, x0:x0+crop_size])
+                    patches_arr.append(src[y0 : y0 + crop_size, x0 : x0 + crop_size])
+                    mask_arr.append(img_mask[y0 : y0 + crop_size, x0 : x0 + crop_size])
 
-                    on += pooled_h*pooled_w
+                    on += pooled_h * pooled_w
                     on_patch += 1
             patches = np.stack(patches_arr)
             patch_ordering = np.stack(patch_ordering_arr)
@@ -483,7 +552,7 @@ class MultiModalPreprocessor:
             # it to get left-to-right order
             patch_ordering_rh = np.reshape(
                 patch_ordering,
-                [tiling[0], tiling[1], image_token_length_h, image_token_length_w]
+                [tiling[0], tiling[1], image_token_length_h, image_token_length_w],
             )
             patch_ordering_rh = np.transpose(patch_ordering_rh, [0, 2, 1, 3])
             patch_ordering_rh = np.reshape(patch_ordering_rh, [-1])
@@ -494,58 +563,70 @@ class MultiModalPreprocessor:
 
             def get_num_patches(num_tiles: int, pooling_size: int) -> int:
                 if num_tiles > 1:
-                    left_crop_window_patches = (crop_window_patches + left_margin + pooling_size - 1) // pooling_size * pooling_size
-                    middle_crop_window_patches = (crop_window_patches + pooling_size - 1) // pooling_size * pooling_size
-                    right_crop_window_patches = (crop_window_patches + right_margin + pooling_size - 1) // pooling_size * pooling_size
-                    return left_crop_window_patches + (num_tiles - 2) * middle_crop_window_patches + right_crop_window_patches
+                    left_crop_window_patches = (
+                        (crop_window_patches + left_margin + pooling_size - 1)
+                        // pooling_size
+                        * pooling_size
+                    )
+                    middle_crop_window_patches = (
+                        (crop_window_patches + pooling_size - 1)
+                        // pooling_size
+                        * pooling_size
+                    )
+                    right_crop_window_patches = (
+                        (crop_window_patches + right_margin + pooling_size - 1)
+                        // pooling_size
+                        * pooling_size
+                    )
+                    return (
+                        left_crop_window_patches
+                        + (num_tiles - 2) * middle_crop_window_patches
+                        + right_crop_window_patches
+                    )
                 else:
-                    single_crop_window_patches = (crop_patches + pooling_size - 1) // pooling_size * pooling_size
+                    single_crop_window_patches = (
+                        (crop_patches + pooling_size - 1) // pooling_size * pooling_size
+                    )
                     return single_crop_window_patches
 
             # Now build the output tokens
             h = get_num_patches(tiling[0], self.image_pooling_h)
             w = get_num_patches(tiling[1], self.image_pooling_w)
             per_row = np.full(
-                (w // self.image_pooling_w,),
-                self.image_patch_token_id,
-                dtype=np.int32
+                (w // self.image_pooling_w,), self.image_patch_token_id, dtype=np.int32
             )
             if self.use_col_tokens:
                 per_row = np.concatenate([per_row, [self.image_col_token_id]], 0)
 
             joint = np.tile(per_row, [h // self.image_pooling_h])
-            joint = [
-                [self.image_start_token_id],
-                joint,
-                [self.image_end_token_id]
-            ]
+            joint = [[self.image_start_token_id], joint, [self.image_end_token_id]]
 
             # Finally do the same for the global image
-            resized, _ = self.resize_image(image, base_image_input_size, is_training, rng)
+            resized, _ = self.resize_image(
+                image, base_image_input_size, is_training, rng
+            )
             resized = self._normalize(resized)
             resized = pixels_to_patches(resized, image_patch_size)
             patches = np.concatenate([np.expand_dims(resized, 0), patches], 0)
 
             # Global image goes first, so the order of patches in previous crops gets increased
             patch_ordering = np.where(
-                patch_ordering >= 0,
-                patch_ordering + tokens_per_image,
-                -1
+                patch_ordering >= 0, patch_ordering + tokens_per_image, -1
             )
-            patch_ordering = np.concatenate([np.arange(0, tokens_per_image), patch_ordering], 0)
+            patch_ordering = np.concatenate(
+                [np.arange(0, tokens_per_image), patch_ordering], 0
+            )
             per_row = np.full(
-                (image_token_length_w,),
-                self.image_patch_token_id,
-                dtype=np.int32
+                (image_token_length_w,), self.image_patch_token_id, dtype=np.int32
             )
             if self.use_col_tokens:
                 per_row = np.concatenate([per_row, [self.image_col_token_id]], 0)
             extra_tokens = np.tile(per_row, [image_token_length_h])
             joint = [
-                        [self.image_start_token_id],
-                        extra_tokens,
-                        [self.image_end_token_id],
-                    ] + joint
+                [self.image_start_token_id],
+                extra_tokens,
+                [self.image_end_token_id],
+            ] + joint
 
             joint = np.concatenate(joint, 0)
             img_mask = np.pad(img_mask, [[0, 1], [0, 0]], constant_values=-1)
@@ -579,7 +660,9 @@ class MultiModalPreprocessor:
             # We have to be careful to preserve the sparse structure of `patch_order` where -1 means
             # a patch is skipped
             sorted_patch_ixs = np.zeros([n_tokens], np.int32)
-            sorted_patch_ixs[patch_order[valid]] = np.arange(n_valid_patches, dtype=np.int32)
+            sorted_patch_ixs[patch_order[valid]] = np.arange(
+                n_valid_patches, dtype=np.int32
+            )
             sorted_patch_ixs_ex = np.full(np.shape(patch_order), -1)
             sorted_patch_ixs_ex[valid] = sorted_patch_ixs
 
@@ -587,8 +670,8 @@ class MultiModalPreprocessor:
             # this since the `image_tokens`` will contain special tokens interleave with the
             # tokens that will become image features
             valid = (sorted_patch_ixs_ex >= 0).astype(np.int32)
-            image_input_idx = image_input_idx[sorted_patch_ixs_ex*valid]
-            image_input_idx = image_input_idx*valid - 100*(1 - valid)
+            image_input_idx = image_input_idx[sorted_patch_ixs_ex * valid]
+            image_input_idx = image_input_idx * valid - 100 * (1 - valid)
 
         image_input_idx = np.reshape(image_input_idx, [-1, tokens_per_image])
         return image_input_idx
@@ -606,8 +689,9 @@ class MultiModalPreprocessor:
             padding_mask: (n_crops, n_patches) what percent of each crop is padding, can be None
                           if the image mask is not being used.
         """
-        crops, image_tokens, patch_ordering, img_mask = self.image_to_patches_and_tokens(
-            image, is_training, rng)
+        crops, image_tokens, patch_ordering, img_mask = (
+            self.image_to_patches_and_tokens(image, is_training, rng)
+        )
         patch_idx = self.build_image_input_idx(
             image_tokens,
             patch_ordering,
@@ -621,7 +705,7 @@ class MultiModalPreprocessor:
         weight=None,
         is_training=False,
         rng=None,
-        require_image_features=False
+        require_image_features=False,
     ):
         """Interleave images and text tokens into multi-modal features for the model"""
         if len(messages) == 0:
@@ -639,9 +723,9 @@ class MultiModalPreprocessor:
                     message_ids.append(self.tokenizer.eos_token_id)
                 token_ids += message_ids
                 if weight is None:
-                    loss_masks += [has_loss]*len(message_ids)
+                    loss_masks += [has_loss] * len(message_ids)
                 else:
-                    loss_masks += [weight if has_loss else 0]*len(message_ids)
+                    loss_masks += [weight if has_loss else 0] * len(message_ids)
             tokens = np.array(token_ids, dtype=np.int32)
             loss_masks = np.array(loss_masks, dtype=np.float32)
             subsegments = None
@@ -660,43 +744,55 @@ class MultiModalPreprocessor:
                     if has_loss:
                         message_ids.append(self.tokenizer.eos_token_id)
                     token_ids += message_ids
-                    loss_masks.append(np.full(len(message_ids), has_loss, dtype=np.bool_))
+                    loss_masks.append(
+                        np.full(len(message_ids), has_loss, dtype=np.bool_)
+                    )
                     n += len(message_ids)
-                subsegments.append(np.full(n, message_set_ix+1, dtype=np.int32))
+                subsegments.append(np.full(n, message_set_ix + 1, dtype=np.int32))
             tokens = np.array(token_ids, dtype=np.int32)
             loss_masks = np.concatenate(loss_masks, dtype=np.float32)
             subsegments = np.concatenate(subsegments, dtype=np.int32)
             if weight is not None:
                 loss_masks *= weight
             if self.loss_token_weighting == "root_subsegments":
-                loss_masks *= math.sqrt(1/len(messages))
+                loss_masks *= math.sqrt(1 / len(messages))
             elif self.loss_token_weighting is not None:
                 raise NotImplementedError(self.loss_token_weighting)
 
-        if images is None or (
-            isinstance(images, (list, tuple)) and len(images) == 0
-        ):
+        if images is None or (isinstance(images, (list, tuple)) and len(images) == 0):
             bos = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id
             decoder_input_tokens = np.pad(tokens, [[1, 0]], constant_values=bos)[:-1]
-            data = {"input_tokens": tokens, "loss_masks": loss_masks, "target_tokens": tokens}
+            data = {
+                "input_tokens": tokens,
+                "loss_masks": loss_masks,
+                "target_tokens": tokens,
+            }
             if subsegments is not None:
-                subsegments = np.pad(subsegments, [[1, 0]], constant_values=subsegments[0])[:-1]
+                subsegments = np.pad(
+                    subsegments, [[1, 0]], constant_values=subsegments[0]
+                )[:-1]
                 data["subsegments"] = subsegments
             if require_image_features:
                 # Add size-zero image features, this can be useful to make sure all devices
                 # get an image input when the image ViT is FSDP wrapped
                 tokens_per_image = self.image_token_length_w * self.image_token_length_h
-                n_pixels = self.image_patch_size ** 2 * 3
+                n_pixels = self.image_patch_size**2 * 3
                 h, w = self.base_image_input_size
-                image_num_patch = (h//self.image_patch_size * w//self.image_patch_size)
+                image_num_patch = (
+                    h // self.image_patch_size * w // self.image_patch_size
+                )
                 crops = np.zeros((0, image_num_patch, n_pixels), dtype=np.float32)
                 image_idx = np.zeros((0, tokens_per_image), np.int32)
-                data.update(dict(
-                    images=crops,
-                    image_input_idx=image_idx,
-                ))
+                data.update(
+                    dict(
+                        images=crops,
+                        image_input_idx=image_idx,
+                    )
+                )
                 if self.image_padding_mask:
-                    data["image_masks"] = np.zeros((0, image_num_patch), dtype=np.float32)
+                    data["image_masks"] = np.zeros(
+                        (0, image_num_patch), dtype=np.float32
+                    )
             return data
 
         if not isinstance(images, (list, tuple)):
@@ -733,14 +829,16 @@ class MultiModalPreprocessor:
 
         for ix in range(n):
             token_ix = image_idx[ix]
-            crops, image_tokens, patch_idx, img_mask = self.preprocess(images[ix], is_training, rng)
+            crops, image_tokens, patch_idx, img_mask = self.preprocess(
+                images[ix], is_training, rng
+            )
 
             if token_ix == -1:  # -1 is an image inserted at the very start
                 start = 0
                 token_ix = 0
                 end = 0
             else:
-                start = 0 if ix == 0 else image_idx[ix-1] + 1
+                start = 0 if ix == 0 else image_idx[ix - 1] + 1
                 end = token_ix + 1
 
             all_image_idx.append(patch_idx + token_ix)
@@ -754,7 +852,9 @@ class MultiModalPreprocessor:
             if subsegments is not None:
                 all_subsegments.append(subsegments[start:token_ix])
                 image_subsegment = 10000 if image_idx[ix] == -1 else token_ix
-                all_subsegments.append(np.full(len(image_tokens), image_subsegment, np.int32))
+                all_subsegments.append(
+                    np.full(len(image_tokens), image_subsegment, np.int32)
+                )
             if image_padding_mask:
                 all_crop_masks.append(img_mask)
 
@@ -785,7 +885,9 @@ class MultiModalPreprocessor:
             all_loss_masks = np.pad(all_loss_masks, [[0, 1]], constant_values=-1)
             target_tokens = np.pad(target_tokens, [[0, 1]], constant_values=-1)
 
-        image_input_idx = np.where(image_input_idx < 0, image_input_idx, image_input_idx + 1)
+        image_input_idx = np.where(
+            image_input_idx < 0, image_input_idx, image_input_idx + 1
+        )
         out = {
             "input_tokens": input_ids,
             "images": images,
@@ -797,14 +899,18 @@ class MultiModalPreprocessor:
             out["image_masks"] = np.concatenate(all_crop_masks, 0)
         if subsegments is not None:
             all_subsegments = np.concatenate(all_subsegments, 0)
-            all_subsegments = np.pad(all_subsegments, [[1, 0]], constant_values=all_subsegments[0])
+            all_subsegments = np.pad(
+                all_subsegments, [[1, 0]], constant_values=all_subsegments[0]
+            )
             if ends_with_eos:
                 all_subsegments = all_subsegments[:-1]
             out["subsegment_ids"] = all_subsegments
             position_ids = np.zeros_like(all_subsegments)
             for subsegment_id in np.unique(all_subsegments):
                 segment_position_ids = np.cumsum(all_subsegments >= subsegment_id) - 1
-                position_ids = np.where(all_subsegments == subsegment_id, segment_position_ids, position_ids)
+                position_ids = np.where(
+                    all_subsegments == subsegment_id, segment_position_ids, position_ids
+                )
             out["position_ids"] = position_ids
         else:
             out["position_ids"] = np.arange(len(input_ids), dtype=np.int64)
@@ -826,14 +932,16 @@ class Preprocessor:
         if "image" in example:
             try:
                 image = load_image(example["image"])
-            except Exception as e:
+            except Exception:
                 raise ValueError(f"Could not load image: {example['image']}")
             else:
                 example["image"] = image
         else:
             image = None
 
-        messages, formatter_metadata = self.formater(example, self.is_training, self.for_inference, rng)
+        messages, formatter_metadata = self.formater(
+            example, self.is_training, self.for_inference, rng
+        )
         if self.shuffle_messages and isinstance(messages[0], list):
             # If there are multiple conversations for this example, shuffle their order
             # This might matter if we truncate the tokens to a max sequence length
@@ -844,7 +952,7 @@ class Preprocessor:
             weight=example.get("weight"),
             rng=rng,
             is_training=self.is_training,
-            require_image_features=self.require_image_features
+            require_image_features=self.require_image_features,
         )
         if formatter_metadata is None:
             formatter_metadata = {}

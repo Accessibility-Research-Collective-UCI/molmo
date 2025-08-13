@@ -41,14 +41,25 @@ def extract_bbs_from_a11y(a11y_data, dim):
         center_x = int((left + right) / 2)
         center_y = int((top + bottom) / 2)
 
-        size_x = (right - left)
-        size_y = (bottom - top)
+        size_x = right - left
+        size_y = bottom - top
 
         bb_centers.append((center_x, center_y))
         bb_sizes.append((size_x, size_y))
         bbs.append([left, top, right, bottom])
 
-        extra_meta_str = 'Box: ' + str([left, top, right, bottom]) + ' Center:' + str([center_x, center_y]) + ' Size:' + str([size_x, size_y]) + ' Metadata: ' + node.get('text', '') + ' ' + node.get('viewIdResourceName', '')
+        extra_meta_str = (
+            "Box: "
+            + str([left, top, right, bottom])
+            + " Center:"
+            + str([center_x, center_y])
+            + " Size:"
+            + str([size_x, size_y])
+            + " Metadata: "
+            + node.get("text", "")
+            + " "
+            + node.get("viewIdResourceName", "")
+        )
         extra_meta_strings.append(extra_meta_str)
     return bbs, bb_centers, bb_sizes, extra_meta_strings
 
@@ -59,7 +70,9 @@ def extract_bbs_from_a11y(a11y_data, dim):
 def extract_app_bb(input_string, search_text="text=Note"):
     input_string = input_string.lower()
     if search_text in input_string:
-        pattern = re.compile(rf"center=\[(\d+),(\d+)\],\s*size=\[(\d+),(\d+)\],\s*{search_text}")
+        pattern = re.compile(
+            rf"center=\[(\d+),(\d+)\],\s*size=\[(\d+),(\d+)\],\s*{search_text}"
+        )
         match = pattern.search(input_string)
         if match:
             center_x, center_y = int(match.group(1)), int(match.group(2))
@@ -70,7 +83,7 @@ def extract_app_bb(input_string, search_text="text=Note"):
             right = center_x + width // 2
             bottom = center_y + height // 2
             return (left, top, right, bottom)
-    return ''
+    return ""
 
 
 # Given the target coordinates of a click or longpress action and a list of
@@ -78,14 +91,14 @@ def extract_app_bb(input_string, search_text="text=Note"):
 # look for centers that are within +/- 1 of the target coordinates. If unsuccessful,
 # define the target bounding box as +/- 10 of the target coordinates.
 # Strategy will either be center or smallest.
-def find_gt_box(gt_coords, bb_centers, bb_sizes, bbs, strategy='center'):
+def find_gt_box(gt_coords, bb_centers, bb_sizes, bbs, strategy="center"):
     gt_box = None
 
     # If the center of an element's bounding box == +/- 1 of target coordinates...
-    if strategy == 'center':
+    if strategy == "center":
         smallest = None
         x, y = int(gt_coords[0]), int(gt_coords[1])
-        for i,bb_center in enumerate(bb_centers):
+        for i, bb_center in enumerate(bb_centers):
             if abs(bb_center[0] - x) <= 1 and abs(bb_center[1] - y) <= 1:
                 bb_size = bb_sizes[i]
                 if smallest is None:
@@ -98,16 +111,25 @@ def find_gt_box(gt_coords, bb_centers, bb_sizes, bbs, strategy='center'):
                     continue
 
     # The smallest bounding box that encloses the target coordinates...
-    elif strategy == 'smallest':
+    elif strategy == "smallest":
         enclosing_bbs = []
-        for i,bb in enumerate(bbs):
+        for i, bb in enumerate(bbs):
             if within_bounding_box(gt_coords, bb):
-                enclosing_bbs.append({'bbox': bb, 'size': bb_sizes[i]})
+                enclosing_bbs.append({"bbox": bb, "size": bb_sizes[i]})
         if len(enclosing_bbs) > 0:
-            enclosing_bbs.sort(key=lambda item: item['size'])
-            gt_box = enclosing_bbs[0]['bbox']
+            enclosing_bbs.sort(key=lambda item: item["size"])
+            gt_box = enclosing_bbs[0]["bbox"]
 
-    gt_box = gt_box if gt_box != None else (gt_coords[0] - 10, gt_coords[1] - 10, gt_coords[0] + 10, gt_coords[1] + 10)
+    gt_box = (
+        gt_box
+        if gt_box != None
+        else (
+            gt_coords[0] - 10,
+            gt_coords[1] - 10,
+            gt_coords[0] + 10,
+            gt_coords[1] + 10,
+        )
+    )
     return gt_box
 
 
@@ -129,7 +151,12 @@ class Element:
     properties: Optional[list] = None
 
     def __str__(self):
-        l, t, b, r = self.bbox.get("left", 0), self.bbox.get("top", 0), self.bbox.get("bottom", 0), self.bbox.get("right", 0)
+        l, t, b, r = (
+            self.bbox.get("left", 0),
+            self.bbox.get("top", 0),
+            self.bbox.get("bottom", 0),
+            self.bbox.get("right", 0),
+        )
         box_w = int(r) - int(l)
         box_h = (b) - (t)
         c_x = int((l) + (box_w) / 2)
@@ -137,18 +164,18 @@ class Element:
 
         a11y = f"center=[{c_x},{c_y}], size=[{box_w},{box_h}]"
 
-        if self.text not in ['', None]:
+        if self.text not in ["", None]:
             a11y += f", text={self.text}"
-        elif self.resource not in ['', None]:
+        elif self.resource not in ["", None]:
             a11y += f", resource={self.resource}"
 
         if self.class_ != None:
-            if 'Switch' in self.class_:
+            if "Switch" in self.class_:
                 a11y += ", text=Switch"
-            elif 'Edit' in self.class_:
-                a11y += f", EditableText"
+            elif "Edit" in self.class_:
+                a11y += ", EditableText"
 
-        if len (self.properties) > 0:
+        if len(self.properties) > 0:
             a11y += ", " + str(self.properties)
 
         return a11y
@@ -157,15 +184,23 @@ class Element:
 def reduce_a11y_tree(a11y_tree):
     def extract_node_info(node):
         properties = []
-        for prop in ["isCheckable", "isChecked", "isClickable", "isClicked", "isLongClickable", "isScrollable", "isSelected"]:
+        for prop in [
+            "isCheckable",
+            "isChecked",
+            "isClickable",
+            "isClicked",
+            "isLongClickable",
+            "isScrollable",
+            "isSelected",
+        ]:
             if node.get(prop, False) != False:
                 properties.append(prop)
 
         bbox = node.get("boundsInScreen", {})
 
-        pattern = r'com.*?id/'
+        pattern = r"com.*?id/"
         resource = node.get("viewIdResourceName", "")
-        resource = re.sub(pattern, '', resource)
+        resource = re.sub(pattern, "", resource)
 
         if node.get("className") != None:
             cls = node.get("className").replace("android.widget.", "")
@@ -177,21 +212,26 @@ def reduce_a11y_tree(a11y_tree):
             "resource": resource,
             "bbox": bbox,
             "class_": cls,
-            "properties": properties
+            "properties": properties,
         }
-        if node.get("text") not in ['', None]:
-            node_info['text'] = node.get("text")
+        if node.get("text") not in ["", None]:
+            node_info["text"] = node.get("text")
         return node_info
 
     def traverse_nodes(nodes):
         reduced_nodes = []
         for node in nodes:
             if node.get("isVisibleToUser"):
-                if node.get("isClickable") or node.get("isCheckable") or node.get("text") != "" or node.get("viewIdResourceName") != "":
+                if (
+                    node.get("isClickable")
+                    or node.get("isCheckable")
+                    or node.get("text") != ""
+                    or node.get("viewIdResourceName") != ""
+                ):
                     node_info = extract_node_info(node)
                     new_node_info = {}
-                    for k,v in node_info.items():
-                        if not v in [False, '', None, 'None']:
+                    for k, v in node_info.items():
+                        if v not in [False, "", None, "None"]:
                             new_node_info[k] = v
                     reduced_nodes.append(new_node_info)
         return reduced_nodes
@@ -226,7 +266,12 @@ def remove_duplicates(a11y_tree):
     unique_tree = []
 
     for element in a11y_tree:
-        identifier = (element.get('bbox'), element.get('class'), element.get('resource'), element.get('text'))
+        identifier = (
+            element.get("bbox"),
+            element.get("class"),
+            element.get("resource"),
+            element.get("text"),
+        )
         if identifier not in seen:
             seen.add(identifier)
             unique_tree.append(element)

@@ -15,7 +15,7 @@ def get_chat_response(
     max_tokens=256,
     n=1,
     patience=10000000,
-    sleep_time=0
+    sleep_time=0,
 ):
     """Run a query through an OpenAI model"""
 
@@ -40,7 +40,9 @@ def get_chat_response(
                 if prediction != "" and prediction != None:
                     return prediction
             else:
-                prediction = [choice.message.content.strip() for choice in response.choices]
+                prediction = [
+                    choice.message.content.strip() for choice in response.choices
+                ]
                 if prediction[0] != "" and prediction[0] != None:
                     return prediction
 
@@ -61,4 +63,3 @@ def get_chat_response(
             if sleep_time > 0:
                 time.sleep(sleep_time)
     return ""
-

@@ -5,13 +5,7 @@ import datasets
 
 import requests
 from tqdm import tqdm
-import json
-import os
-from pathlib import Path
 
-import datasets
-import requests
-from tqdm import tqdm
 
 _URLS = {
     "annotations": "https://prior-datasets.s3.us-east-2.amazonaws.com/aokvqa/aokvqa_v1p0.tar.gz"
@@ -41,16 +35,19 @@ def download_file(url, filename):
     # Send a GET request to the URL
     response = requests.get(url, stream=True)
     # Get the total file size
-    total_size = int(response.headers.get('content-length', 0))
-    
+    total_size = int(response.headers.get("content-length", 0))
+
     # Open the local file to write the downloaded content
-    with open(filename, 'wb') as file, tqdm(
-        desc=filename,
-        total=total_size,
-        unit='iB',
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as progress_bar:
+    with (
+        open(filename, "wb") as file,
+        tqdm(
+            desc=filename,
+            total=total_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as progress_bar,
+    ):
         for data in response.iter_content(chunk_size=1024):
             size = file.write(data)
             progress_bar.update(size)
@@ -73,20 +70,14 @@ class AOkVqaBuilder(datasets.GeneratorBasedBuilder):
                 "question": datasets.Value("string"),
                 "question_id": datasets.Value("string"),
                 "difficult_direct_answer": datasets.Value("bool"),
-                "direct_answers": [
-                    datasets.Value("string")
-                ],
-                "choices": [
-                    datasets.Value("string")
-                ],
+                "direct_answers": [datasets.Value("string")],
+                "choices": [datasets.Value("string")],
                 "correct_choice_idx": datasets.Value("int64"),
                 "image": datasets.Value("string"),
             }
         )
-        return datasets.DatasetInfo(
-            features=features
-        )
-    
+        return datasets.DatasetInfo(features=features)
+
     def _split_generators(self, dl_manager):
         downloaded_pointer = dl_manager.download(_URLS)
 
@@ -106,16 +97,22 @@ class AOkVqaBuilder(datasets.GeneratorBasedBuilder):
 
         print(f"Downloaded files: {downloaded_pointer}. Extracting...")
         data_dir = dl_manager.extract(downloaded_pointer)
-        
+
         gen_kwargs = {}
         for split_name in ["val", "test", "train"]:
             split_gen_kwargs = {}
 
-            split_gen_kwargs["images_path"] = Path(data_dir["images"][split_name]) / _SUB_FOLDER_OR_FILE_NAME["images"][split_name]
-            split_gen_kwargs["annotations_path"] = Path(data_dir["annotations"]) / _SUB_FOLDER_OR_FILE_NAME["annotations"][split_name]
+            split_gen_kwargs["images_path"] = (
+                Path(data_dir["images"][split_name])
+                / _SUB_FOLDER_OR_FILE_NAME["images"][split_name]
+            )
+            split_gen_kwargs["annotations_path"] = (
+                Path(data_dir["annotations"])
+                / _SUB_FOLDER_OR_FILE_NAME["annotations"][split_name]
+            )
 
             gen_kwargs[split_name] = split_gen_kwargs
-        
+
         return [
             datasets.SplitGenerator(
                 name=datasets.Split.TRAIN,
@@ -140,13 +137,20 @@ class AOkVqaBuilder(datasets.GeneratorBasedBuilder):
 
             # TODO: Figure out the data path by running in runtime.
             # image_file_name = get_coco_image_file(image_id, split)
-            
-            yield ex['question_id'], dict(
-                question=ex['question'],
-                question_id=ex['question_id'],
-                difficult_direct_answer=ex['difficult_direct_answer'],
-                choices=ex['choices'],
-                direct_answers=ex["direct_answers"] if "direct_answers" in ex else None,
-                correct_choice_idx=ex['correct_choice_idx'] if "correct_choice_idx" in ex else None,
-                image=image_file_name,
+
+            yield (
+                ex["question_id"],
+                dict(
+                    question=ex["question"],
+                    question_id=ex["question_id"],
+                    difficult_direct_answer=ex["difficult_direct_answer"],
+                    choices=ex["choices"],
+                    direct_answers=ex["direct_answers"]
+                    if "direct_answers" in ex
+                    else None,
+                    correct_choice_idx=ex["correct_choice_idx"]
+                    if "correct_choice_idx" in ex
+                    else None,
+                    image=image_file_name,
+                ),
             )

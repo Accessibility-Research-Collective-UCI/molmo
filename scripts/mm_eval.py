@@ -1,4 +1,5 @@
 """Run this script with 'torchrun'."""
+
 import dataclasses
 import json
 import logging
@@ -19,8 +20,13 @@ from torch.distributed.fsdp import ShardingStrategy
 from transformers import AutoModelForCausalLM
 
 from olmo.checkpoint import load_model_state
-from olmo.config import EvalConfig, TokenizerConfig, ModelConfig, DatasetEvaluatorConfig, \
-    VisionBackboneConfig
+from olmo.config import (
+    EvalConfig,
+    TokenizerConfig,
+    ModelConfig,
+    DatasetEvaluatorConfig,
+    VisionBackboneConfig,
+)
 from olmo.data import build_torch_mm_eval_dataloader
 from olmo.eval.inf_evaluator import InfDatasetEvaluator, build_inf_evaluator
 from olmo.exceptions import OLMoCliError
@@ -31,12 +37,15 @@ from olmo.torch_util import (
     get_global_rank,
     get_local_rank,
     peak_gpu_memory,
-    seed_all, get_world_size,
+    seed_all,
+    get_world_size,
 )
 from olmo.util import (
     add_cached_path_clients,
     clean_opt,
-    prepare_cli_environment, resource_path, log_metrics_to_console,
+    prepare_cli_environment,
+    resource_path,
+    log_metrics_to_console,
 )
 
 log = logging.getLogger(__name__)
@@ -44,14 +53,14 @@ log = logging.getLogger(__name__)
 
 def get_float_dtype_by_name(dtype):
     return {
-        'bf16': torch.bfloat16,
-        'bfloat16': torch.bfloat16,
-        'fp16': torch.float16,
-        'float16': torch.float16,
-        'fp32': torch.float32,
-        'float32': torch.float32,
-        'fp64': torch.float64,
-        'float64': torch.float64,
+        "bf16": torch.bfloat16,
+        "bfloat16": torch.bfloat16,
+        "fp16": torch.float16,
+        "float16": torch.float16,
+        "fp32": torch.float32,
+        "float32": torch.float32,
+        "fp64": torch.float64,
+        "float64": torch.float64,
     }[dtype]
 
 
@@ -69,6 +78,7 @@ def get_gcs_url(output_file):
 @dataclasses.dataclass
 class ModelEvaluator:
     """Evaluates a model on possibly multiple tasks"""
+
     config: EvalConfig
 
     def get_save_dir(self, cfg: DatasetEvaluatorConfig) -> Optional[str]:
@@ -82,7 +92,7 @@ class ModelEvaluator:
             base = cfg.save_dir
 
         # If the load path has a step indicator, use it in the save dir name
-        step_match = re.match(".*/step([0-9]+).*",  self.config.load_path)
+        step_match = re.match(".*/step([0-9]+).*", self.config.load_path)
         if step_match is not None:
             step = int(step_match.group(1))
         else:
@@ -128,16 +138,20 @@ class ModelEvaluator:
                 ),
                 pad_tokenizer=True,
                 crop_mode="resize",
-                tokenizer=TokenizerConfig(
-                    identifier='allenai/OLMoE-1B-7B-0924'
-                )
+                tokenizer=TokenizerConfig(identifier="allenai/OLMoE-1B-7B-0924"),
             )
             olmo_model = Molmo(model_cfg).to(device)
             olmo_model.reset_parameters()
         elif cfg.load_path.startswith("hf-"):
             hf_model = AutoModelForCausalLM.from_pretrained(
-                cfg.load_path[3:], trust_remote_code=True, torch_dtype='fp32', device_map='cpu')
-            import pdb; pdb.set_trace()
+                cfg.load_path[3:],
+                trust_remote_code=True,
+                torch_dtype="fp32",
+                device_map="cpu",
+            )
+            import pdb
+
+            pdb.set_trace()
         elif cfg.fsdp is None:
             log.info("Loading model without FSDP...")
             olmo_model = Molmo.from_checkpoint(cfg.load_path, device=device)
@@ -145,7 +159,9 @@ class ModelEvaluator:
         else:
             log.info("Building FSDP model...")
             model_cfg_path = resource_path(cfg.load_path, "config.yaml")
-            model_cfg = ModelConfig.load(model_cfg_path, key="model", validate_paths=False)
+            model_cfg = ModelConfig.load(
+                model_cfg_path, key="model", validate_paths=False
+            )
             olmo_model = Molmo(model_cfg)
 
             # We always have only rank0 load the checkpoint, and then use `sync_module_states`
@@ -165,7 +181,10 @@ class ModelEvaluator:
             log.info("Wrapping model with FDSP...")
             wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
             hybrid_sharding_fsdp_kwargs = {}
-            if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+            if cfg.fsdp.sharding_strategy in (
+                ShardingStrategy.HYBRID_SHARD,
+                ShardingStrategy._HYBRID_SHARD_ZERO2,
+            ):
                 raise NotImplementedError()
             if version.parse(torch.__version__) < version.parse("2.1.0"):
                 raise NotImplementedError()
@@ -180,7 +199,7 @@ class ModelEvaluator:
                 sharding_strategy=cfg.fsdp.sharding_strategy,
                 mixed_precision=MixedPrecision(
                     param_dtype=cfg.autocast_precision,
-                    buffer_dtype=cfg.autocast_precision
+                    buffer_dtype=cfg.autocast_precision,
                 ),
                 auto_wrap_policy=wrap_policy,
                 use_orig_params=False,
@@ -194,7 +213,9 @@ class ModelEvaluator:
             torch.cuda.empty_cache()  # For the 70B this can prevent OOMs by reduce memory fragmentation
 
         if self.config.max_crops_override:
-            logging.info(f"Overriding max crops from {olmo_model.config.max_crops} to {self.config.max_crops_override}")
+            logging.info(
+                f"Overriding max crops from {olmo_model.config.max_crops} to {self.config.max_crops_override}"
+            )
             olmo_model.config.max_crops = self.config.max_crops_override
 
         seed_all(cfg.seed)
@@ -202,7 +223,9 @@ class ModelEvaluator:
         dtype = olmo_model.transformer.wte.embedding.dtype
         log.info(f"Model weight dtype: {dtype}")
         log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
-        log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+        log.info(
+            f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}"
+        )
         log.info(f"Peak GPU Memory (MB) before FSDP: {int(peak_gpu_memory() or 0)}")
         barrier()
         return olmo_model, device
@@ -217,7 +240,9 @@ class ModelEvaluator:
             if cfg.skip_if_metrics_cached:
                 metric_file = self.get_metric_file(cfg)
                 if metric_file and exists(metric_file):
-                    logging.info(f"Loading pre-computed metrics for {cfg.label} from {metric_file}")
+                    logging.info(
+                        f"Loading pre-computed metrics for {cfg.label} from {metric_file}"
+                    )
                     if get_global_rank() == 0:
                         with open(metric_file, "r") as f:
                             cfg_to_metrics[cfg.label] = json.load(f)["metrics"]
@@ -231,7 +256,9 @@ class ModelEvaluator:
             all_metrics = {}
             for name, metrics in cfg_to_metrics.items():
                 all_metrics.update({f"{name}/{k}": v for k, v in metrics.items()})
-            to_print = {k: v for k, v in all_metrics.items() if isinstance(v, (int, float, str))}
+            to_print = {
+                k: v for k, v in all_metrics.items() if isinstance(v, (int, float, str))
+            }
             log_metrics_to_console("all-metrics", to_print)
             return all_metrics
 
@@ -247,14 +274,20 @@ class ModelEvaluator:
             if len(config.evaluations) == 1:
                 logging.info(f"Starting inference {evaluation.label}")
             else:
-                logging.info(f"Starting inference {evaluation.label} ({eval_ix+1}/{len(config.evaluations)})")
+                logging.info(
+                    f"Starting inference {evaluation.label} ({eval_ix + 1}/{len(config.evaluations)})"
+                )
 
             metrics_file = self.get_metric_file(evaluation)
             if metrics_file and exists(metrics_file):
                 assert not evaluation.skip_if_metrics_cached
-                logging.warning(f"{metrics_file} already exists! File will be overwritten")
+                logging.warning(
+                    f"{metrics_file} already exists! File will be overwritten"
+                )
 
-            device_batch_size = evaluation.device_eval_batch_size or config.device_inf_eval_batch_size
+            device_batch_size = (
+                evaluation.device_eval_batch_size or config.device_inf_eval_batch_size
+            )
             global_batch_size = device_batch_size * get_world_size()
             if evaluation.max_examples is not None and evaluation.max_examples >= 0:
                 max_steps = max(evaluation.max_examples // global_batch_size, 1)
@@ -270,17 +303,19 @@ class ModelEvaluator:
                     model.config,
                     evaluation.data,
                     config.fsdp is not None,
-                    max_steps=max_steps
+                    max_steps=max_steps,
                 )
             else:
                 raise NotImplementedError()
             mm_evaluation = InfDatasetEvaluator(
                 dataloader,
-                build_inf_evaluator(evaluation.mm_evaluator, self.get_save_dir(evaluation)),
+                build_inf_evaluator(
+                    evaluation.mm_evaluator, self.get_save_dir(evaluation)
+                ),
                 label=evaluation.label,
                 n_steps=max_steps,
                 max_new_tokens=evaluation.max_new_tokens,
-                console_log_interval=config.console_log_interval
+                console_log_interval=config.console_log_interval,
             )
             metrics = mm_evaluation.evaluate_model(
                 model,
@@ -288,7 +323,7 @@ class ModelEvaluator:
                 autocast_precision=self.config.autocast_precision,
                 is_distributed=self.config.fsdp is not None,
                 pbar=self.config.pbar,
-                inference_warmup=inference_warmup
+                inference_warmup=inference_warmup,
             )
             inference_warmup = False
 
@@ -309,7 +344,9 @@ class ModelEvaluator:
                         else:
                             metrics[k] = file_name
 
-            to_print = {k: v for k, v in metrics.items() if isinstance(v, (int, float, str))}
+            to_print = {
+                k: v for k, v in metrics.items() if isinstance(v, (int, float, str))
+            }
             if metrics_file and get_global_rank() == 0:
                 to_save = dict(
                     metrics=metrics,
@@ -325,8 +362,12 @@ class ModelEvaluator:
         for name, metrics in cfg_to_metrics.items():
             all_metrics.update({f"{name}/{k}": v for k, v in metrics.items()})
 
-        if len(config.evaluations) > 1:   # print aggregated metrics if doing multiple evaluations
-            to_print = {k: v for k, v in all_metrics.items() if isinstance(v, (int, float, str))}
+        if (
+            len(config.evaluations) > 1
+        ):  # print aggregated metrics if doing multiple evaluations
+            to_print = {
+                k: v for k, v in all_metrics.items() if isinstance(v, (int, float, str))
+            }
             log_metrics_to_console("all-metrics", to_print)
         return all_metrics
 

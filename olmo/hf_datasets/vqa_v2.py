@@ -31,7 +31,7 @@ _URLS = {
     "annotations": {
         "train": "https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Annotations_Train_mscoco.zip",
         "val": "https://s3.amazonaws.com/cvmlp/vqa/mscoco/vqa/v2_Annotations_Val_mscoco.zip",
-    }
+    },
 }
 
 _URLS_IMAGES = {
@@ -62,16 +62,19 @@ def download_file(url, filename):
     # Send a GET request to the URL
     response = requests.get(url, stream=True)
     # Get the total file size
-    total_size = int(response.headers.get('content-length', 0))
-    
+    total_size = int(response.headers.get("content-length", 0))
+
     # Open the local file to write the downloaded content
-    with open(filename, 'wb') as file, tqdm(
-        desc=filename,
-        total=total_size,
-        unit='iB',
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as progress_bar:
+    with (
+        open(filename, "wb") as file,
+        tqdm(
+            desc=filename,
+            total=total_size,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as progress_bar,
+    ):
         for data in response.iter_content(chunk_size=1024):
             size = file.write(data)
             progress_bar.update(size)
@@ -94,9 +97,7 @@ class VQAv2BuilderMultiQA(datasets.GeneratorBasedBuilder):
                 "messages": [
                     {
                         "question": datasets.Value("string"),
-                        "answers": [
-                            datasets.Value("string")
-                        ],
+                        "answers": [datasets.Value("string")],
                         "style": datasets.Value("string"),
                         "question_id": datasets.Value("int64"),
                     }
@@ -105,10 +106,8 @@ class VQAv2BuilderMultiQA(datasets.GeneratorBasedBuilder):
                 "image": datasets.Value("string"),
             }
         )
-        return datasets.DatasetInfo(
-            features=features
-        )
-    
+        return datasets.DatasetInfo(features=features)
+
     def _split_generators(self, dl_manager):
         downloaded_pointer = dl_manager.download(_URLS)
         downloaded_pointer["images"] = dl_manager.download(_URLS_IMAGES)
@@ -128,17 +127,20 @@ class VQAv2BuilderMultiQA(datasets.GeneratorBasedBuilder):
         }
 
         data_dir = dl_manager.extract(downloaded_pointer)
-        
+
         gen_kwargs = {}
         for split_name in ["val", "test", "train"]:
             split_gen_kwargs = {}
             for dir_name in list(set(_URLS.keys()) | set(["images"])):
                 if split_name in data_dir[dir_name]:
-                    split_gen_kwargs[f"{dir_name}_path"] = Path(data_dir[dir_name][split_name]) / _SUB_FOLDER_OR_FILE_NAME[dir_name][split_name]
+                    split_gen_kwargs[f"{dir_name}_path"] = (
+                        Path(data_dir[dir_name][split_name])
+                        / _SUB_FOLDER_OR_FILE_NAME[dir_name][split_name]
+                    )
                 else:
                     split_gen_kwargs[f"{dir_name}_path"] = None
             gen_kwargs[split_name] = split_gen_kwargs
-        
+
         return [
             datasets.SplitGenerator(
                 name=datasets.Split.TRAIN,
@@ -156,7 +158,7 @@ class VQAv2BuilderMultiQA(datasets.GeneratorBasedBuilder):
 
     def _generate_examples(self, questions_path, annotations_path, images_path):
         questions = json.load(open(questions_path, "r"))
-        if annotations_path is not None:    
+        if annotations_path is not None:
             dataset = json.load(open(annotations_path, "r"))
             qa = {ann["question_id"]: ann for ann in dataset["annotations"]}
         else:
@@ -171,22 +173,31 @@ class VQAv2BuilderMultiQA(datasets.GeneratorBasedBuilder):
             for question in questions:
                 anno = qa[question["question_id"]] if qa is not None else None
                 if anno is not None:
-                    messages.append(dict(
-                        question=question["question"],
-                        answers=[x["answer"] for x in anno["answers"]],
-                        question_id=question["question_id"],
-                        style="vqa2",
-                    ))
+                    messages.append(
+                        dict(
+                            question=question["question"],
+                            answers=[x["answer"] for x in anno["answers"]],
+                            question_id=question["question_id"],
+                            style="vqa2",
+                        )
+                    )
                 else:
-                    messages.append(dict(
-                        question=question["question"],
-                        answers=None,
-                        question_id=question["question_id"],
-                        style="vqa2",
-                    ))
-            
-            yield image_id, dict(
-                messages=messages,
-                image_id=image_id,
-                image=str(images_path / f"COCO_{images_path.name}_{image_id:0>12}.jpg"),
+                    messages.append(
+                        dict(
+                            question=question["question"],
+                            answers=None,
+                            question_id=question["question_id"],
+                            style="vqa2",
+                        )
+                    )
+
+            yield (
+                image_id,
+                dict(
+                    messages=messages,
+                    image_id=image_id,
+                    image=str(
+                        images_path / f"COCO_{images_path.name}_{image_id:0>12}.jpg"
+                    ),
+                ),
             )

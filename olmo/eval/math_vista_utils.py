@@ -47,16 +47,19 @@ def get_most_similar(prediction, choices):
     Use the Levenshtein distance (or edit distance) to determine which of the choices is most similar to the given prediction
     """
     from Levenshtein import distance
+
     distances = [distance(prediction, choice) for choice in choices]
     ind = distances.index(min(distances))
     return choices[ind]
 
 
-def normalize_extracted_answer(extraction, choices, question_type, answer_type, precision):
+def normalize_extracted_answer(
+    extraction, choices, question_type, answer_type, precision
+):
     """
     Normalize the extracted answer to match the answer type
     """
-    if question_type == 'multi_choice':
+    if question_type == "multi_choice":
         # make sure the extraction is a string
         if isinstance(extraction, str):
             extraction = extraction.strip()
@@ -67,11 +70,11 @@ def normalize_extracted_answer(extraction, choices, question_type, answer_type, 
                 extraction = ""
 
         # extract "A" from "(A) text"
-        letter = re.findall(r'([a-zA-Z]):', extraction)
+        letter = re.findall(r"([a-zA-Z]):", extraction)
         if len(letter) > 0:
             extraction = letter[0].upper()
 
-        options = [chr(ord('A') + i) for i in range(len(choices))]
+        options = [chr(ord("A") + i) for i in range(len(choices))]
 
         if extraction in options:
             # convert option letter to text, e.g. "A" -> "text"
@@ -82,19 +85,19 @@ def normalize_extracted_answer(extraction, choices, question_type, answer_type, 
             extraction = get_most_similar(extraction, choices)
         assert extraction in choices
 
-    elif answer_type == 'integer':
+    elif answer_type == "integer":
         try:
             extraction = str(int(float(extraction)))
         except:
             extraction = None
 
-    elif answer_type == 'float':
+    elif answer_type == "float":
         try:
             extraction = str(round(float(extraction), precision))
         except:
             extraction = None
 
-    elif answer_type == 'list':
+    elif answer_type == "list":
         try:
             extraction = str(extraction)
         except:
@@ -123,12 +126,20 @@ def create_test_prompt(demo_prompt, query, response):
     return full_prompt
 
 
-def extract_answer(pid, response, question_type, answer_type, choices, query, openai_api_key, quick_extract=False):
-
+def extract_answer(
+    pid,
+    response,
+    question_type,
+    answer_type,
+    choices,
+    query,
+    openai_api_key,
+    quick_extract=False,
+):
     if response == "":
         return ""
 
-    if question_type == 'multi_choice' and response in choices:
+    if question_type == "multi_choice" and response in choices:
         return response
 
     if answer_type == "integer":

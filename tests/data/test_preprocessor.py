@@ -1,7 +1,5 @@
 import numpy as np
-from PIL import Image
-from olmo.data.data_formatter import DataFormatter
-from olmo.data.model_preprocessor import Preprocessor, MultiModalPreprocessor
+from olmo.data.model_preprocessor import MultiModalPreprocessor
 from olmo.html_utils import postprocess_prompt
 from olmo.tokenizer import build_tokenizer, IMAGE_PROMPT
 
@@ -20,14 +18,16 @@ def _test_tokenization(messages, n_at_start=None, preprocessor=None):
         n = " ".join(messages).count(IMAGE_PROMPT)
     else:
         n = n_at_start
-    batch = preprocessor([DUMMY_IMAGE]*n, messages)
-    with_tokens = preprocessor.tokenizer.decode(batch["target_tokens"], truncate_at_eos=False)
+    batch = preprocessor([DUMMY_IMAGE] * n, messages)
+    with_tokens = preprocessor.tokenizer.decode(
+        batch["target_tokens"], truncate_at_eos=False
+    )
     out = postprocess_prompt(with_tokens)
     if n_at_start is None:
         expected = "".join(messages).replace(IMAGE_PROMPT, "IMAGE[144]")
     else:
-        expected = "".join(["IMAGE[144]"]*n + messages)
-    assert out == expected, f"Expected \"{expected}\", but got \"{out}\""
+        expected = "".join(["IMAGE[144]"] * n + messages)
+    assert out == expected, f'Expected "{expected}", but got "{out}"'
 
 
 def test_text_only():
@@ -46,20 +46,19 @@ def test_in_message():
     _test_tokenization(
         [f"1: {IMAGE_PROMPT} 2: {IMAGE_PROMPT} 3: {IMAGE_PROMPT}?", "answer"],
     )
-    _test_tokenization([
-        f"1: {IMAGE_PROMPT} 2: {IMAGE_PROMPT} 3: {IMAGE_PROMPT}?",
-        "response 1",
-        f"4: {IMAGE_PROMPT}",
-        "response 2",
-    ])
+    _test_tokenization(
+        [
+            f"1: {IMAGE_PROMPT} 2: {IMAGE_PROMPT} 3: {IMAGE_PROMPT}?",
+            "response 1",
+            f"4: {IMAGE_PROMPT}",
+            "response 2",
+        ]
+    )
 
 
 def test_multi_message():
     pre = get_preprocessor()
-    messages = [
-        [" turn11", " turn12", " turn13", " turn14"],
-        [" turn21", " turn22"]
-    ]
+    messages = [[" turn11", " turn12", " turn13", " turn14"], [" turn21", " turn22"]]
     batch = pre([DUMMY_IMAGE], messages)
     out = pre.tokenizer.decode(batch["target_tokens"], truncate_at_eos=False)
     out = postprocess_prompt(out)

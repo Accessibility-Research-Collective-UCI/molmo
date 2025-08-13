@@ -45,6 +45,7 @@ class ChartQa(HfDataset):
         weighted (bool, optional): Whether to apply weighting to balance human/augmented examples. Only valid when parts="both".
             Defaults to False.
     """
+
     PATH = "HuggingFaceM4/ChartQA"
 
     def __init__(self, split: str, parts="both", weighted=False, keep_in_memory=False):
@@ -61,8 +62,7 @@ class ChartQa(HfDataset):
             # Filter out either human or aug datasets
             flags = [int(self.parts == "human")]
             self.dataset = self.dataset.filter(
-                lambda x: x in flags,
-                input_columns=["human_or_machine"]
+                lambda x: x in flags, input_columns=["human_or_machine"]
             )
 
     def get(self, item, rng):
@@ -73,16 +73,16 @@ class ChartQa(HfDataset):
             answers=ex["label"],
             style="chart_qa",
             metadata=dict(
-                is_human=ex['human_or_machine'],
-            )
+                is_human=ex["human_or_machine"],
+            ),
         )
         if self.weighted:
             is_human = ex["metadata"]["is_human"]
             # Weight to balanced human/augmented sets
             if is_human:
-                w = 2*20901/(20901+7398)
+                w = 2 * 20901 / (20901 + 7398)
             else:
-                w = 2*7398/(20901+7398)
+                w = 2 * 7398 / (20901 + 7398)
             ex["weight"] = w
         return ex
 
@@ -100,14 +100,16 @@ class Vqa2(Dataset):
             flattened_data = []
             for item in self.dataset:
                 for q in item["messages"]:
-                    flattened_data.append(dict(
-                        style=q['style'],
-                        question=q["question"],
-                        answers=q["answers"],
-                        image=item["image"],
-                        image_id=item["image_id"],
-                        question_id=q["question_id"],
-                    ))
+                    flattened_data.append(
+                        dict(
+                            style=q["style"],
+                            question=q["question"],
+                            answers=q["answers"],
+                            image=item["image"],
+                            image_id=item["image_id"],
+                            question_id=q["question_id"],
+                        )
+                    )
             self.dataset = flattened_data
 
     def __len__(self):
@@ -128,7 +130,7 @@ class Vqa2(Dataset):
                 metadata=dict(image_id=ex["image_id"], example_id=ex["question_id"]),
                 image=ex["image"],
                 question=ex["question"],
-            )            
+            )
 
 
 class AOkVqa(Dataset):
@@ -147,15 +149,16 @@ class AOkVqa(Dataset):
         loaded_data = []
         for example in self.dataset:
             if self.direct_answer:
-                if example["difficult_direct_answer"] and self.split in ["validation", "test"]:
+                if example["difficult_direct_answer"] and self.split in [
+                    "validation",
+                    "test",
+                ]:
                     continue
                 out = dict(
                     image=example["image"],
                     question=example["question"],
                     answers=example["direct_answers"],
-                    metadata=dict(
-                        example_id=example["question_id"]
-                    )
+                    metadata=dict(example_id=example["question_id"]),
                 )
             else:
                 if example["correct_choice_idx"] is None:
@@ -163,7 +166,7 @@ class AOkVqa(Dataset):
                         image=example["image"],
                         question=example["question"],
                         options=example["choices"],
-                        metadata=dict(example_id=example["question_id"])
+                        metadata=dict(example_id=example["question_id"]),
                     )
                 else:
                     out = dict(
@@ -171,7 +174,7 @@ class AOkVqa(Dataset):
                         question=example["question"],
                         options=example["choices"],
                         answer_idx=example["correct_choice_idx"],
-                        metadata=dict(example_id=example["question_id"])
+                        metadata=dict(example_id=example["question_id"]),
                     )
             loaded_data.append(out)
         return loaded_data
@@ -197,12 +200,19 @@ class OkVqa(Dataset):
 
     @classmethod
     def download(cls, n_procs=1):
-        datasets.load_dataset_builder(cls.PATH, trust_remote_code=True).download_and_prepare()
+        datasets.load_dataset_builder(
+            cls.PATH, trust_remote_code=True
+        ).download_and_prepare()
 
     def __init__(self, split: str, multi_question=False, keep_in_memory=False):
         super().__init__()
         self.multi_question = multi_question
-        dataset = datasets.load_dataset(self.PATH, split=split, trust_remote_code=True, keep_in_memory=keep_in_memory)
+        dataset = datasets.load_dataset(
+            self.PATH,
+            split=split,
+            trust_remote_code=True,
+            keep_in_memory=keep_in_memory,
+        )
         if self.multi_question:
             grouped_by_image = defaultdict(list)
             for ex in dataset:
@@ -211,15 +221,19 @@ class OkVqa(Dataset):
             for image_id, examples in grouped_by_image.items():
                 questions = []
                 for ex in examples:
-                    questions.append(dict(
-                        question=ex["question"],
-                        answers=[x["raw_answer"] for x in ex["answers"]],
-                    ))
-                data.append(dict(
-                    image=examples[0]["image"],
-                    metadata=dict(image_id=image_id),
-                    message_list=questions
-                ))
+                    questions.append(
+                        dict(
+                            question=ex["question"],
+                            answers=[x["raw_answer"] for x in ex["answers"]],
+                        )
+                    )
+                data.append(
+                    dict(
+                        image=examples[0]["image"],
+                        metadata=dict(image_id=image_id),
+                        message_list=questions,
+                    )
+                )
             self.data = data
         else:
             self.data = dataset
@@ -247,15 +261,19 @@ class TextVqa(HfDataset):
     """
     This class loads the TextVQA dataset from HuggingFace (https://huggingface.co/datasets/facebook/textvqa).
     """
+
     PATH = "facebook/textvqa"
 
     @classmethod
     def download(cls, n_procs=1):
-        datasets.load_dataset_builder(cls.PATH, trust_remote_code=True).download_and_prepare()
+        datasets.load_dataset_builder(
+            cls.PATH, trust_remote_code=True
+        ).download_and_prepare()
 
     def __init__(self, split: str, identifier=None, keep_in_memory=False):
         super().__init__(
-            split=split, keep_in_memory=keep_in_memory, trust_remote_code=True)
+            split=split, keep_in_memory=keep_in_memory, trust_remote_code=True
+        )
 
     def get(self, item, rng):
         example = self.dataset[item]
@@ -268,12 +286,11 @@ class TextVqa(HfDataset):
                 image_id=example["image_id"],
                 example_id=example["question_id"],
             ),
-            style="text_vqa"
+            style="text_vqa",
         )
 
 
 class TallyQa(Dataset):
-
     @classmethod
     def download(cls, n_procs=1):
         TallyQaBuilder().download_and_prepare()
@@ -291,20 +308,21 @@ class TallyQa(Dataset):
         messages = []
         questions = ex["questions"]
         for ix, question in enumerate(questions["question"]):
-            messages.append(dict(
-                question=question,
-                answer=str(questions["answer"][ix]),
-                style="tally_qa"
-            ))
+            messages.append(
+                dict(
+                    question=question,
+                    answer=str(questions["answer"][ix]),
+                    style="tally_qa",
+                )
+            )
         return dict(
             image=ex["image"],
             message_list=messages,
-            metadata=dict( image_id=ex["image_id"])
+            metadata=dict(image_id=ex["image_id"]),
         )
 
 
 class AI2D(Dataset):
-
     @classmethod
     def download(cls, n_procs=1):
         Ai2dDatasetBuilder().download_and_prepare()
@@ -313,9 +331,13 @@ class AI2D(Dataset):
         assert split in ["train", "validation", "test"]
         dataset = Ai2dDatasetBuilder().as_dataset(split)
         if boxes == "transparent":
-            dataset = dataset.filter(lambda x: not x["abc_label"] or x["has_transparent_box"])
+            dataset = dataset.filter(
+                lambda x: not x["abc_label"] or x["has_transparent_box"]
+            )
         elif boxes == "opaque":
-            dataset = dataset.filter(lambda x: not x["abc_label"] or not x["has_transparent_box"])
+            dataset = dataset.filter(
+                lambda x: not x["abc_label"] or not x["has_transparent_box"]
+            )
         elif boxes == "both":
             pass
         else:
@@ -339,11 +361,11 @@ class AI2D(Dataset):
                 example_id=_ex["question_id"],
                 image_id=_ex["image_id"],
                 abc_label=_ex["abc_label"],
-                has_transparent_box=_ex["has_transparent_box"]
+                has_transparent_box=_ex["has_transparent_box"],
             ),
         )
         options = _ex["answer_texts"]
-        if _ex["abc_label"] and sum(_ex["option_is_abc"]) >= (len(options)-1):
+        if _ex["abc_label"] and sum(_ex["option_is_abc"]) >= (len(options) - 1):
             ex["unlabelled_options"] = [
                 opt.upper() if abc else opt
                 for opt, abc in zip(options, _ex["option_is_abc"])
@@ -359,6 +381,7 @@ class ScienceQAImageOnly(Dataset):
     """
     This class loads the ScienceQA dataset from HuggingFace (https://huggingface.co/datasets/derek-thomas/ScienceQA).
     """
+
     PATH = "derek-thomas/ScienceQA"
 
     @classmethod
@@ -367,7 +390,9 @@ class ScienceQAImageOnly(Dataset):
 
     def __init__(self, split):
         assert split in ["train", "validation", "test"]
-        self.dataset = datasets.load_dataset(self.PATH, split=split).filter(lambda ex: ex["image"] is not None)
+        self.dataset = datasets.load_dataset(self.PATH, split=split).filter(
+            lambda ex: ex["image"] is not None
+        )
         super().__init__()
 
     def __len__(self):
@@ -375,7 +400,7 @@ class ScienceQAImageOnly(Dataset):
 
     def get(self, item, rng):
         ex = self.dataset[item]
-        question =  ex["question"]
+        question = ex["question"]
         hint = ex["hint"]
         if hint:
             question = hint + "\n" + hint
@@ -421,12 +446,14 @@ class InfoQa(DatasetBase):
         out = []
         for ex in data["data"]:
             image_path = join(INFOQA_SOURCE, "images", ex.pop("image_local_name"))
-            out.append(dict(
-                image=image_path,
-                question=ex["question"],
-                answers=ex.get("answers", []),
-                metadata=dict(example_id=ex["questionId"]),
-            ))
+            out.append(
+                dict(
+                    image=image_path,
+                    question=ex["question"],
+                    answers=ex.get("answers", []),
+                    metadata=dict(example_id=ex["questionId"]),
+                )
+            )
         return out
 
     def get(self, item, rng):
@@ -442,6 +469,7 @@ class DocQa(HfDataset):
     Args:
         split (str): Dataset split to load. One of "train", "validation", or "test".
     """
+
     PATH = "HuggingFaceM4/DocumentVQA"
 
     def __init__(self, split: str, keep_in_memory=False, **kwargs):
@@ -454,7 +482,7 @@ class DocQa(HfDataset):
                 assert k not in example or example[k] is None
                 example[k] = []
         return dict(
-                dict(
+            dict(
                 image=example["image"],
                 question=example["question"],
                 answers=example.get("answers"),
@@ -462,12 +490,13 @@ class DocQa(HfDataset):
                     doc_id=example["docId"],
                     question_types=example.get("question_types"),
                     example_id=example["questionId"],
-                )
-            ), style="doc_qa")
+                ),
+            ),
+            style="doc_qa",
+        )
 
 
 class SceneTextQa(DatasetBase):
-
     @classmethod
     def download(cls, n_procs=1):
         for split in ["train", "test"]:
@@ -491,12 +520,14 @@ class SceneTextQa(DatasetBase):
             data = json.load(f)["data"]
         out = []
         for question in data:
-            out.append(dict(
-                image=join(ST_QA_SRC, question["file_path"]),
-                question=question["question"],
-                metadata=dict(example_id=question["question_id"]),
-                answers=question.get("answers", []),
-            ))
+            out.append(
+                dict(
+                    image=join(ST_QA_SRC, question["file_path"]),
+                    question=question["question"],
+                    metadata=dict(example_id=question["question_id"]),
+                    answers=question.get("answers", []),
+                )
+            )
         if self.split in ["train", "validation"]:
             # Custom val split since the data doesn't have one
             out.sort(key=lambda x: x["metadata"]["example_id"])
@@ -513,7 +544,6 @@ class SceneTextQa(DatasetBase):
 
 
 class CountBenchQa(Dataset):
-
     @classmethod
     def download(self, n_procs=1):
         CountQaBuilder().download_and_prepare()
@@ -527,19 +557,18 @@ class CountBenchQa(Dataset):
     def get(self, item, rng):
         ex = self.dataset[item]
         return {
-            'image': ex["image"],
-            'question': ex['question'],
-            'style': "point_count",
-            'metadata': {
-                'count': ex['count'],
-                'image_id': ex["example_id"],
-                'image_url': ex['image_url'],
-            }
+            "image": ex["image"],
+            "question": ex["question"],
+            "style": "point_count",
+            "metadata": {
+                "count": ex["count"],
+                "image_id": ex["example_id"],
+                "image_url": ex["image_url"],
+            },
         }
 
 
 class TabWMPDirectAnswer(Dataset):
-
     @classmethod
     def download(cls, n_procs=1):
         TabMwpBuilder().download_and_prepare()
@@ -558,9 +587,7 @@ class TabWMPDirectAnswer(Dataset):
             question=ex["question"],
             answer=ex["answer"],
             style="tabwmp_da",
-            metadata=dict(
-                example_id=ex["example_id"]
-            )
+            metadata=dict(example_id=ex["example_id"]),
         )
         if self.include_options and ex["choices"]:
             out["options"] = ex["choices"]
@@ -568,7 +595,6 @@ class TabWMPDirectAnswer(Dataset):
 
 
 class FigureQa(Dataset):
-
     @classmethod
     def download(cls, n_procs=1):
         FigureQaBuilder().download_and_prepare()
@@ -590,7 +616,6 @@ class FigureQa(Dataset):
 
 
 class PlotQa(Dataset):
-
     @classmethod
     def download(cls, n_procs=1):
         PlotQaBuilder().download_and_prepare()
@@ -619,7 +644,8 @@ class AndroidControl(Dataset):
     def __init__(self, split, mode="all", in_memory=False):
         self.mode = mode
         self.hf_dataset = AndroidControlBuilder().as_dataset(
-            "val" if split == "validation" else split, in_memory=in_memory)
+            "val" if split == "validation" else split, in_memory=in_memory
+        )
 
     def __len__(self):
         return len(self.hf_dataset)
@@ -630,23 +656,29 @@ class AndroidControl(Dataset):
             dict(
                 prompt="low_level: " + ex["ll_instruction"],
                 text=ex["target_action"],
-                style="android_control"
+                style="android_control",
             ),
             dict(
-                prompt="high_level: " + ex["hl_instruction"] + " low_level: " + ex["ll_instruction"],
+                prompt="high_level: "
+                + ex["hl_instruction"]
+                + " low_level: "
+                + ex["ll_instruction"],
                 text=ex["target_action"],
-                style="android_control"
+                style="android_control",
             ),
             dict(
                 prompt="high_level: " + ex["hl_instruction"],
                 text=ex["target_action"],
-                style="android_control"
+                style="android_control",
             ),
             dict(
                 prompt="high_level_cot: " + ex["hl_instruction"],
-                text="Plan: " + ex["ll_instruction"] + " Action: " + ex["target_action"],
-                style="android_control"
-            )
+                text="Plan: "
+                + ex["ll_instruction"]
+                + " Action: "
+                + ex["target_action"],
+                style="android_control",
+            ),
         ]
         example = dict(
             image=ex["image"],
@@ -655,7 +687,7 @@ class AndroidControl(Dataset):
                 target_box=ex["target_box"],
                 ll_instruction=ex["ll_instruction"],
                 hl_instruction=ex["hl_instruction"],
-            )
+            ),
         )
         if self.mode == "ll":
             example.update(ll)
@@ -719,7 +751,7 @@ class MathVista(HfDataset):
                 query=ex["question"],
                 choices=ex["choices"],
                 question_type=ex["question_type"],
-                answer_type=ex["answer_type"]
+                answer_type=ex["answer_type"],
             ),
         )
         if ex["question_type"] == "multi_choice":
@@ -743,11 +775,16 @@ class RealWorldQa(HfDataset):
         if "Please answer directly with a single word or number." in prompt:
             question_type = "short_answer"
         else:
-            assert "Please answer directly with only the letter of the correct option and nothing else." in prompt
+            assert (
+                "Please answer directly with only the letter of the correct option and nothing else."
+                in prompt
+            )
             question_type = "multiple_choice"
         out = dict(
             image=ex["image"],
-            metadata=dict(answer=ex["answer"], prompt=ex["question"], question_type=question_type),
+            metadata=dict(
+                answer=ex["answer"], prompt=ex["question"], question_type=question_type
+            ),
         )
         if self.mode == "plain":
             out.update(style="none", prompt=prompt)
@@ -768,12 +805,36 @@ class RealWorldQa(HfDataset):
 
 class MMMU(Dataset):
     NAMES = [
-        'Accounting', 'Agriculture', 'Architecture_and_Engineering', 'Art', 'Art_Theory',
-        'Basic_Medical_Science', 'Biology', 'Chemistry', 'Clinical_Medicine', 'Computer_Science',
-        'Design', 'Diagnostics_and_Laboratory_Medicine', 'Economics', 'Electronics', 'Energy_and_Power',
-        'Finance', 'Geography', 'History', 'Literature', 'Manage', 'Marketing', 'Materials', 'Math',
-        'Mechanical_Engineering', 'Music', 'Pharmacy', 'Physics', 'Psychology', 'Public_Health',
-        'Sociology'
+        "Accounting",
+        "Agriculture",
+        "Architecture_and_Engineering",
+        "Art",
+        "Art_Theory",
+        "Basic_Medical_Science",
+        "Biology",
+        "Chemistry",
+        "Clinical_Medicine",
+        "Computer_Science",
+        "Design",
+        "Diagnostics_and_Laboratory_Medicine",
+        "Economics",
+        "Electronics",
+        "Energy_and_Power",
+        "Finance",
+        "Geography",
+        "History",
+        "Literature",
+        "Manage",
+        "Marketing",
+        "Materials",
+        "Math",
+        "Mechanical_Engineering",
+        "Music",
+        "Pharmacy",
+        "Physics",
+        "Psychology",
+        "Public_Health",
+        "Sociology",
     ]
 
     @classmethod
@@ -800,8 +861,12 @@ class MMMU(Dataset):
             image=ex["image_1"],
             text=ex["answer"],
             question=ex["question"],
-            metadata=dict(answer=ex["answer"], example_id=ex["id"], question_type=ex["question_type"]),
-            style='a_okvqa_mc' if mc else 'vqa2'
+            metadata=dict(
+                answer=ex["answer"],
+                example_id=ex["id"],
+                question_type=ex["question_type"],
+            ),
+            style="a_okvqa_mc" if mc else "vqa2",
         )
         if mc:
             options = eval(ex["options"])
@@ -814,7 +879,6 @@ class MMMU(Dataset):
 
 
 class ClockBench(Dataset):
-
     @classmethod
     def download(cls, n_procs=1):
         ClockBenchBuilder().download_and_prepare()

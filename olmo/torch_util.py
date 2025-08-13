@@ -33,7 +33,10 @@ def is_distributed() -> bool:
 
 
 def get_node_rank() -> int:
-    return int(os.environ.get("NODE_RANK") or (get_global_rank() - get_local_rank()) // get_local_world_size())
+    return int(
+        os.environ.get("NODE_RANK")
+        or (get_global_rank() - get_local_rank()) // get_local_world_size()
+    )
 
 
 def get_world_size() -> int:
@@ -53,7 +56,7 @@ def get_global_rank() -> int:
     else:
         return 0
 
-    
+
 def get_local_rank() -> int:
     return int(os.environ.get("LOCAL_RANK") or 0)
 
@@ -82,7 +85,9 @@ def move_to_device(o: T, device: torch.device) -> T:
         return o
 
 
-def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
+def ensure_finite_(
+    x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False
+):
     """
     Modify ``x`` in place to replace ``float("-inf")`` with the minimum value of the dtype when ``check_neg_inf``
     is ``True`` and to replace ``float("inf")`` with the maximum value of the dtype when ``check_pos_inf`` is ``True``.
@@ -168,7 +173,9 @@ def freeze_module(module: torch.nn.Module, exclude_params: Optional[List[str]] =
         param.requires_grad = False
 
 
-def freeze_parameters_by_name(model: torch.nn.Module, freeze_names: Tuple[str], warn=True):
+def freeze_parameters_by_name(
+    model: torch.nn.Module, freeze_names: Tuple[str], warn=True
+):
     for name in freeze_names:
         try:
             module_or_param = model.get_submodule(name)

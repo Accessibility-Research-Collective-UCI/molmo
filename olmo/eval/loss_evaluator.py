@@ -1,4 +1,5 @@
 """Class to build metrics for a model based on the loss"""
+
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Union, List
 
@@ -26,8 +27,9 @@ class LossDatasetEvaluator:
                 metric.reset()
 
     def compute_metrics(self) -> Dict[str, float]:
-        return {f"{self.label}/{k}": v.compute().item()
-                for k, v in self.eval_metric.items()}
+        return {
+            f"{self.label}/{k}": v.compute().item() for k, v in self.eval_metric.items()
+        }
 
     def update_metrics(
         self,
@@ -35,6 +37,12 @@ class LossDatasetEvaluator:
         eval_out: Dict[str, torch.Tensor],
     ) -> None:
         total_weight = eval_out["total_weight"]
-        self.eval_metric["Loss"].update(eval_out["total_loss"]/total_weight, total_weight)
-        self.eval_metric["Accuracy"].update(eval_out["total_accuracy"]/total_weight, total_weight)
-        self.eval_metric["ZLoss"].update(eval_out["total_zloss"]/total_weight, total_weight)
+        self.eval_metric["Loss"].update(
+            eval_out["total_loss"] / total_weight, total_weight
+        )
+        self.eval_metric["Accuracy"].update(
+            eval_out["total_accuracy"] / total_weight, total_weight
+        )
+        self.eval_metric["ZLoss"].update(
+            eval_out["total_zloss"] / total_weight, total_weight
+        )

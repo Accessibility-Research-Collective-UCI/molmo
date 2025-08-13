@@ -22,8 +22,11 @@ def _collate(tensors, max_sequence_length=None, dtype=None, pad=False, pad_value
     if pad == "to_max":
         max_len = max_sequence_length
         tensor = [x for x in tensors if x is not None][0]
-        arr = np.full([len(tensors), max_len] + list(tensor.shape[1:]), pad_value,
-                      dtype=dtype or tensor.dtype)
+        arr = np.full(
+            [len(tensors), max_len] + list(tensor.shape[1:]),
+            pad_value,
+            dtype=dtype or tensor.dtype,
+        )
     else:
         max_len = max((0 if x is None else x.shape[0]) for x in tensors)
         if max_sequence_length:
@@ -31,23 +34,37 @@ def _collate(tensors, max_sequence_length=None, dtype=None, pad=False, pad_value
         elif pad is not None:
             raise NotImplementedError(pad)
 
-        arr = np.full([len(tensors), max_len] + list(tensors[0].shape[1:]), pad_value,
-                      dtype=dtype or tensors[0].dtype)
+        arr = np.full(
+            [len(tensors), max_len] + list(tensors[0].shape[1:]),
+            pad_value,
+            dtype=dtype or tensors[0].dtype,
+        )
 
     for ix, tensor in enumerate(tensors):
         if tensor is not None:
-            arr[ix, :len(tensor)] = tensor[:max_len]
+            arr[ix, : len(tensor)] = tensor[:max_len]
     return torch.from_numpy(arr)
 
 
 class MMCollator:
     """Converts list of examples from our datasets into a tensor batch"""
 
-    TEXT_KEYS = ["input_tokens", "target_tokens", "loss_masks", "subsegment_ids", "position_ids"]
-    IMAGE_KEYS = ["images", "image_masks", "image_input_idx",]
+    TEXT_KEYS = [
+        "input_tokens",
+        "target_tokens",
+        "loss_masks",
+        "subsegment_ids",
+        "position_ids",
+    ]
+    IMAGE_KEYS = [
+        "images",
+        "image_masks",
+        "image_input_idx",
+    ]
 
-    def __init__(self, max_sequence_length=None, include_metadata=True, pad=None,
-                 max_crops=None):
+    def __init__(
+        self, max_sequence_length=None, include_metadata=True, pad=None, max_crops=None
+    ):
         """
         :param max_sequence_length: truncate examples longer than this length
         :param include_metadata: whether to include the metadata in the out batch
@@ -76,11 +93,17 @@ class MMCollator:
 
                 dtype = np.float32 if key == "loss_masks" else np.int64
                 out[key] = _collate(
-                    [ex.get(key) for ex in batch], self.max_sequence_length, dtype, pad=self.pad)
+                    [ex.get(key) for ex in batch],
+                    self.max_sequence_length,
+                    dtype,
+                    pad=self.pad,
+                )
 
         for key in self.IMAGE_KEYS:
             if any(key in ex for ex in batch):
-                out[key] = _collate([ex.get(key) for ex in batch], self.max_crops, pad=self.pad)
+                out[key] = _collate(
+                    [ex.get(key) for ex in batch], self.max_crops, pad=self.pad
+                )
         out["input_ids"] = out.pop("input_tokens")
         if "target_tokens" in out:
             out["labels"] = out.pop("target_tokens")

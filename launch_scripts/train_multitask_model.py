@@ -10,10 +10,22 @@ from omegaconf import OmegaConf
 
 from launch_scripts.utils import get_evaluation, DEBUG_MODEL
 from olmo import TrainConfig
-from olmo.config import DataConfig, \
-    ModelConfig, WandbConfig, OptimizerConfig, OptimizerType, SchedulerConfig, SchedulerType, \
-    BatchDivisor, SpeedMonitorConfig, ActivationCheckpointingStrategy, FSDPConfig, FSDPWrapStrategy, \
-    FSDPPrecision, RootSizeMixture
+from olmo.config import (
+    DataConfig,
+    ModelConfig,
+    WandbConfig,
+    OptimizerConfig,
+    OptimizerType,
+    SchedulerConfig,
+    SchedulerType,
+    BatchDivisor,
+    SpeedMonitorConfig,
+    ActivationCheckpointingStrategy,
+    FSDPConfig,
+    FSDPWrapStrategy,
+    FSDPPrecision,
+    RootSizeMixture,
+)
 from olmo.torch_util import get_world_size
 from olmo.util import (
     add_cached_path_clients,
@@ -37,19 +49,16 @@ AUX = [
     "a_okvqa_mc",
     "a_okvqa_da",
     "android_control",
-
     # Some other datasets we might want to eval on
     "science_qa_img",
     "tabwmp_da",
     "st_qa",
     "tally_qa",
-
     # ("clocks", 250000),  # Downsample since it is huge
     "pixmo_docs_charts",
     "pixmo_docs_tables",
     "pixmo_docs_other",
     "pixmo_docs_diagrams",
-
     # # Other synthetic data, also downsampled since they are huge
     ("dv_qa", 10000),
     ("figure_qa", 10000),
@@ -99,7 +108,9 @@ if __name__ == "__main__":
 
     if args.mixture.startswith("single"):
         task_name = args.mixture.split("_", 1)[1]
-        eval_tasks = [task_name,]
+        eval_tasks = [
+            task_name,
+        ]
         tasks = [["eval", eval_tasks, 1.0]]
     elif args.mixture == "android":
         eval_tasks = ["android_control_ll"]
@@ -109,8 +120,7 @@ if __name__ == "__main__":
         tasks = [["aux", ["chart_qa", "doc_qa"], 1.0]]
     elif args.mixture == "small2":
         eval_tasks = ["chart_qa", "doc_qa", "info_qa"]
-        tasks = [["aux", [("chart_qa", 4*4),
-                          ("doc_qa", 2*2), ("info_qa", 1)], 1.0]]
+        tasks = [["aux", [("chart_qa", 4 * 4), ("doc_qa", 2 * 2), ("info_qa", 1)], 1.0]]
     elif args.mixture in ["3.2-synthetic"]:
         aux = list(AUX)
         eval_tasks = [
@@ -122,24 +132,32 @@ if __name__ == "__main__":
             # "clocks",
             "android_control_ll",
             "pointing_eval:test",
-            "countbench_qa:huggingface"
+            "countbench_qa:huggingface",
         ]
         tasks = [
-            ["demo", [
-                "pixmo_ask_model_anything",
-                ("pixmo_cap", 50000),
-                "pixmo_cap_qa",
-                "pixmo_pointing_explanations"
-            ], 0.15],
+            [
+                "demo",
+                [
+                    "pixmo_ask_model_anything",
+                    ("pixmo_cap", 50000),
+                    "pixmo_cap_qa",
+                    "pixmo_pointing_explanations",
+                ],
+                0.15,
+            ],
             ["aux", aux, 0.50],
-            ["pointing", [
-                "pixmo_points",
-                "pixmo_count",
-                "pixmo_points_high_freq",
-                "pixmo_points_counting",
-                "pixmo_points_high_freq_counting",
-                "pixmo_count_counting",
-            ], 0.35]
+            [
+                "pointing",
+                [
+                    "pixmo_points",
+                    "pixmo_count",
+                    "pixmo_points_high_freq",
+                    "pixmo_points_counting",
+                    "pixmo_points_high_freq_counting",
+                    "pixmo_count_counting",
+                ],
+                0.35,
+            ],
         ]
     else:
         raise NotImplementedError(args.mixture)
@@ -175,9 +193,13 @@ if __name__ == "__main__":
         if exists(join(args.checkpoint, "model.yaml")):
             model_cfg = ModelConfig.load(join(args.checkpoint, "model.yaml"))
         else:
-            model_cfg = ModelConfig.load(join(args.checkpoint, "config.yaml"), key="model")
+            model_cfg = ModelConfig.load(
+                join(args.checkpoint, "config.yaml"), key="model"
+            )
 
-        eval_subset_batches = eval_examples//(args.device_eval_batch_size*get_world_size())
+        eval_subset_batches = eval_examples // (
+            args.device_eval_batch_size * get_world_size()
+        )
         logging.info(f"Setting eval subset batches to {eval_subset_batches}")
         assert eval_subset_batches > 0
 
@@ -199,9 +221,9 @@ if __name__ == "__main__":
         evaluation = get_evaluation(
             task,
             args.inf_seq_len,
-            batch_size=get_world_size()*args.device_inf_batch_size,
+            batch_size=get_world_size() * args.device_inf_batch_size,
             max_examples=max_inf_examples,
-            num_workers=2
+            num_workers=2,
         )
         evaluation.data.persistent_workers = True
         evaluations.append(evaluation)
@@ -212,12 +234,14 @@ if __name__ == "__main__":
         save_folder="debug_run" if debug else omegaconf.MISSING,
         seed=6198,
         dry_run=False,
-        wandb=None if debug else WandbConfig(
+        wandb=None
+        if debug
+        else WandbConfig(
             name="${run_name}",
             project="${oc.env:WANDB_PROJECT}",
             group=None,
             entity="${oc.env:WANDB_ENTITY}",
-            log_interval=log_interval
+            log_interval=log_interval,
         ),
         allow_resume=True,
         model=model_cfg,
@@ -234,7 +258,7 @@ if __name__ == "__main__":
             pad="to_max",
             shuffle_messages=True,
             pin_memory=True,
-            seed=50189
+            seed=50189,
         ),
         ft_connector=True,
         ft_llm=True,
@@ -253,7 +277,7 @@ if __name__ == "__main__":
             connector_eps=1e-6,
             vit_eps=1e-6,
             llm_eps=1e-6,
-            metrics_log_interval=20
+            metrics_log_interval=20,
         ),
         scheduler=SchedulerConfig(
             name=SchedulerType.multimodal,
@@ -261,15 +285,17 @@ if __name__ == "__main__":
             vit_t_warmup=200,
             llm_t_warmup=200,
             alpha_f=0.1,
-            warmup_min_lr=0.0
+            warmup_min_lr=0.0,
         ),
         fsdp=FSDPConfig(
             use_orig_params=True,
             wrapping_strategy=FSDPWrapStrategy.by_block_and_size,
-            precision=FSDPPrecision.float
+            precision=FSDPPrecision.float,
         ),
         load_path=None,
-        initial_model_checkpoint=None if "debug" in args.checkpoint else args.checkpoint,
+        initial_model_checkpoint=None
+        if "debug" in args.checkpoint
+        else args.checkpoint,
         save_interval=4000,
         save_num_checkpoints_to_keep=1,
         save_interval_unsharded="${max_duration}",
@@ -292,7 +318,7 @@ if __name__ == "__main__":
         inf_eval_interval=inf_eval_interval,
         inf_evaluators=evaluations,
         eval_subset_num_batches=eval_subset_batches,
-        evaluators=[]
+        evaluators=[],
     )
 
     conf = OmegaConf.create(cfg)

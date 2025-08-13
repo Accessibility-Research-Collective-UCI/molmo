@@ -32,7 +32,6 @@ def crop_with_context(img_shape, bbox, margin=0.2):
 
 
 class ClockBenchBuilder(datasets.GeneratorBasedBuilder):
-
     VERSION = datasets.Version("1.0.0")
 
     def __init__(self, *args, **kwargs):
@@ -40,16 +39,20 @@ class ClockBenchBuilder(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         return datasets.DatasetInfo(
-            features=datasets.Features({
-                'image': datasets.Image(),
-                'cropped_image': datasets.Image(),
-                "hour": datasets.Value("int64"),
-                "minute": datasets.Value("int64"),
-                "image_id": datasets.Value("string"),
-            }),
+            features=datasets.Features(
+                {
+                    "image": datasets.Image(),
+                    "cropped_image": datasets.Image(),
+                    "hour": datasets.Value("int64"),
+                    "minute": datasets.Value("int64"),
+                    "image_id": datasets.Value("string"),
+                }
+            ),
         )
 
-    def _split_generators(self, dl_manager: datasets.DownloadManager) -> List[datasets.SplitGenerator]:
+    def _split_generators(
+        self, dl_manager: datasets.DownloadManager
+    ) -> List[datasets.SplitGenerator]:
         splits = ["coco", "openimg", "movies"]
         image_ids = dict(
             coco="1j1RkuzYTPppR8_VGMx3PQLFut6toRHaq",
@@ -72,8 +75,8 @@ class ClockBenchBuilder(datasets.GeneratorBasedBuilder):
                 gen_kwargs=dict(
                     image_dir=downloaded_images[k],
                     anno_file=downloaded_annotations[k],
-                    split=k
-                )
+                    split=k,
+                ),
             )
             for k in splits
         ]
@@ -89,26 +92,29 @@ class ClockBenchBuilder(datasets.GeneratorBasedBuilder):
         with open(anno_file, "r") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
-        
+
         for row in rows:
-            img_path = join(img_dir, unicodedata.normalize('NFD', row["file_name"]))
+            img_path = join(img_dir, unicodedata.normalize("NFD", row["file_name"]))
             if not exists(img_path):
                 continue
             image = Image.open(img_path).convert("RGB")
-            bbox_det = ast.literal_eval(row['bbox_det'])
+            bbox_det = ast.literal_eval(row["bbox_det"])
             x1, y1, x2, y2 = crop_with_context(image.size, bbox_det)
             cropped_image = np.asarray(image)[y1:y2, x1:x2, :]
             image = np.asarray(image)
             assert image.dtype == np.uint8
-            hour = int(row['hour'])
-            minute = int(row['minute'])
-            image_id = row['img_id']
-            yield img_path, dict(
-                image=image,
-                cropped_image=cropped_image,
-                hour=hour,
-                minute=minute,
-                image_id=image_id,
+            hour = int(row["hour"])
+            minute = int(row["minute"])
+            image_id = row["img_id"]
+            yield (
+                img_path,
+                dict(
+                    image=image,
+                    cropped_image=cropped_image,
+                    hour=hour,
+                    minute=minute,
+                    image_id=image_id,
+                ),
             )
 
 

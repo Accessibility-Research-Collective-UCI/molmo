@@ -7,7 +7,7 @@ from typing import List
 import PIL
 import datasets
 import numpy as np
-from PIL import Image, ImageFont
+from PIL import ImageFont
 from PIL.ImageDraw import ImageDraw
 from tqdm import tqdm
 
@@ -20,7 +20,7 @@ def flatten_lists(xss):
 
 
 def get_font_size(image_size: tuple[int, int]) -> int:
-    ''' Get the font size based on the size of the image. '''
+    """Get the font size based on the size of the image."""
     min_font_size = 16
     max_font_size = 32
     # dynamically adjust font size based on size of image.
@@ -38,7 +38,7 @@ def draw_abc_labels(image_f, annotations, mode="in_box", use_transparent=False):
 
     if use_transparent:
         draw = ImageDraw(image, "RGBA")
-        fill = fill + (127, )
+        fill = fill + (127,)
     else:
         draw = ImageDraw(image, "RGB")
 
@@ -54,7 +54,7 @@ def draw_abc_labels(image_f, annotations, mode="in_box", use_transparent=False):
         letter = text_box["replacementText"]
         draw.rectangle([x1, y1, x2, y2], fill=fill)
 
-        if mode == "left": # draw text on the left of the box with white background
+        if mode == "left":  # draw text on the left of the box with white background
             # fontsize = 16
             fontsize = get_font_size(image.size)
             x_margin = 12
@@ -62,16 +62,20 @@ def draw_abc_labels(image_f, annotations, mode="in_box", use_transparent=False):
             font = ImageFont.truetype(font_name, fontsize)
 
             # text top left corner
-            xy = (max(x1-x_margin, 0), max(y1-y_margin, 0))
+            xy = (max(x1 - x_margin, 0), max(y1 - y_margin, 0))
 
             # get text bbox and draw background
-            text_bbox = draw.textbbox(xy, text=letter, font=font, )
+            text_bbox = draw.textbbox(
+                xy,
+                text=letter,
+                font=font,
+            )
             draw.rectangle(text_bbox, fill="white")
 
             # draw text
             draw.text(xy, text=letter, fill="black", font=font)
 
-        elif mode == "in_box": # cover the box with text
+        elif mode == "in_box":  # cover the box with text
             target_height = y2 - y1
             fontsize = 22
             font = ImageFont.truetype(font_name, fontsize)
@@ -83,7 +87,12 @@ def draw_abc_labels(image_f, annotations, mode="in_box", use_transparent=False):
                     textbox = draw.textbbox((100, 100), letter, font=font)
             cx = (textbox[2] - textbox[0]) / 2
             ry = target_height - (textbox[3] - textbox[1])
-            draw.text(((x1+x2)/2 - cx, y1 - (textbox[1]-100) + ry/2), text=letter, fill="black", font=font)
+            draw.text(
+                ((x1 + x2) / 2 - cx, y1 - (textbox[1] - 100) + ry / 2),
+                text=letter,
+                fill="black",
+                font=font,
+            )
         else:
             raise ValueError()
     return image
@@ -94,6 +103,7 @@ class Ai2dDatasetBuilder(datasets.GeneratorBasedBuilder):
     AI2D dataset builder, this builder adds the labelled boxes as needed to the AI2D images
     using both transparent and opaque boxes
     """
+
     VERSION = datasets.Version("1.0.0")
 
     def __init__(self, *args, **kwargs):
@@ -101,27 +111,35 @@ class Ai2dDatasetBuilder(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         return datasets.DatasetInfo(
-            features=datasets.Features({
-                'image': datasets.Image(),
-                'question': datasets.Value("string"),
-                'image_id': datasets.Value("int32"),
-                'option_is_abc': datasets.Sequence(datasets.Value("bool")),
-                'image_name': datasets.Value("string"),
-                'question_id': datasets.Value("string"),
-                'abc_label': datasets.Value("bool"),
-                'answer_texts': datasets.Sequence(datasets.Value("string")),
-                'correct_answer': datasets.Value("int32"),
-                'has_transparent_box': datasets.Value("bool"),
-            }),
+            features=datasets.Features(
+                {
+                    "image": datasets.Image(),
+                    "question": datasets.Value("string"),
+                    "image_id": datasets.Value("int32"),
+                    "option_is_abc": datasets.Sequence(datasets.Value("bool")),
+                    "image_name": datasets.Value("string"),
+                    "question_id": datasets.Value("string"),
+                    "abc_label": datasets.Value("bool"),
+                    "answer_texts": datasets.Sequence(datasets.Value("string")),
+                    "correct_answer": datasets.Value("int32"),
+                    "has_transparent_box": datasets.Value("bool"),
+                }
+            ),
         )
 
     def get_abc_image(self, image, annotations) -> np.ndarray:
-        return np.array(draw_abc_labels(image, annotations, mode="in_box", use_transparent=False))
+        return np.array(
+            draw_abc_labels(image, annotations, mode="in_box", use_transparent=False)
+        )
 
     def get_transparent_abc_image(self, image, annotations) -> np.ndarray:
-        return np.array(draw_abc_labels(image, annotations, mode="left", use_transparent=True))
+        return np.array(
+            draw_abc_labels(image, annotations, mode="left", use_transparent=True)
+        )
 
-    def _split_generators(self, dl_manager: datasets.DownloadManager) -> List[datasets.SplitGenerator]:
+    def _split_generators(
+        self, dl_manager: datasets.DownloadManager
+    ) -> List[datasets.SplitGenerator]:
         data_src = join(dl_manager.download_and_extract(AI2D_ALL), "ai2d")
         ai2d_test_ids = dl_manager.download(AI2D_TEST_IDS)
 
@@ -142,14 +160,23 @@ class Ai2dDatasetBuilder(datasets.GeneratorBasedBuilder):
                 image = join(data_src, "images", questions["imageName"])
                 abc_replacement_to_ans = {}
                 if any(x["abcLabel"] for x in questions["questions"].values()):
-                    with open(join(data_src, f"annotations/{questions['imageName']}.json")) as f:
+                    with open(
+                        join(data_src, f"annotations/{questions['imageName']}.json")
+                    ) as f:
                         annotations = json.load(f)
                     abc_image = self.get_abc_image(image, annotations)
-                    transparent_abc_image = self.get_transparent_abc_image(image, annotations)
+                    transparent_abc_image = self.get_transparent_abc_image(
+                        image, annotations
+                    )
                     for text_box in annotations["text"].values():
                         assert text_box["replacementText"] not in abc_replacement_to_ans
-                        assert text_box["replacementText"] == text_box["replacementText"].upper()
-                        abc_replacement_to_ans[text_box["replacementText"]] = text_box["rectangle"]
+                        assert (
+                            text_box["replacementText"]
+                            == text_box["replacementText"].upper()
+                        )
+                        abc_replacement_to_ans[text_box["replacementText"]] = text_box[
+                            "rectangle"
+                        ]
                 else:
                     abc_image = None
                     transparent_abc_image = None
@@ -204,7 +231,7 @@ class Ai2dDatasetBuilder(datasets.GeneratorBasedBuilder):
                         image_id=image_id,
                         option_is_abc=option_is_abc,
                         image_name=questions["imageName"],
-                        question_id=question_data["questionId"]+"_transparent",
+                        question_id=question_data["questionId"] + "_transparent",
                         abc_label=question_data["abcLabel"],
                         answer_texts=pruned_options,
                         correct_answer=pruned_options.index(answer),
@@ -216,25 +243,43 @@ class Ai2dDatasetBuilder(datasets.GeneratorBasedBuilder):
                         # for mix, add question with transparent image
                         if question_data["abcLabel"]:
                             assert transparent_abc_image is not None
-                            test_mix.append((transparent_example["question_id"], transparent_example))
+                            test_mix.append(
+                                (
+                                    transparent_example["question_id"],
+                                    transparent_example,
+                                )
+                            )
                     else:
-                        train_mix[image_id].append((question_data["questionId"], example))
-                        train_transparent[image_id].append((transparent_example["question_id"], transparent_example))
+                        train_mix[image_id].append(
+                            (question_data["questionId"], example)
+                        )
+                        train_transparent[image_id].append(
+                            (transparent_example["question_id"], transparent_example)
+                        )
 
                         # for mix, add question with transparent image
                         if question_data["abcLabel"]:
                             assert transparent_abc_image is not None
-                            train_mix[image_id].append((transparent_example["question_id"], transparent_example))
+                            train_mix[image_id].append(
+                                (
+                                    transparent_example["question_id"],
+                                    transparent_example,
+                                )
+                            )
 
         keys = sorted(train_mix)
         np.random.RandomState(5961).shuffle(keys)
         n_val = 384
-        print(f"Holding out {n_val}/{len(keys)} images and {sum(len(train_mix[k]) for k in keys[:n_val])} questions for val")
+        print(
+            f"Holding out {n_val}/{len(keys)} images and {sum(len(train_mix[k]) for k in keys[:n_val])} questions for val"
+        )
 
         validation_mix = flatten_lists(train_mix[k] for k in keys[:n_val])
         splits = dict(
             # train=flatten_lists(train.values()),
-            train=flatten_lists(train_mix[k] for k in keys[n_val:]), # placed here to avoid overwrite
+            train=flatten_lists(
+                train_mix[k] for k in keys[n_val:]
+            ),  # placed here to avoid overwrite
             validation=validation_mix,
             test=test_mix,
         )
@@ -255,4 +300,3 @@ class Ai2dDatasetBuilder(datasets.GeneratorBasedBuilder):
 
 if __name__ == "__main__":
     Ai2dDatasetBuilder().download_and_prepare()
-

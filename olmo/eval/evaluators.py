@@ -1,4 +1,5 @@
 """Classes the compute metrics given ground truth/prediction pairs"""
+
 import base64
 import dataclasses
 import io
@@ -20,15 +21,32 @@ from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 from torchmetrics import MeanMetric
 
-from .vqa import vqa_score, anls_metric, relaxed_correctness, \
-    a_okvqa_score, select_mc_option, mmmu_score, real_world_qa_score, math_vista_score
-from ..html_utils import build_html_table, postprocess_prompt, BoxesToVisualize, \
-    get_html_image_with_boxes
+from .vqa import (
+    vqa_score,
+    anls_metric,
+    relaxed_correctness,
+    a_okvqa_score,
+    select_mc_option,
+    mmmu_score,
+    real_world_qa_score,
+    math_vista_score,
+)
+from ..html_utils import (
+    build_html_table,
+    postprocess_prompt,
+    BoxesToVisualize,
+    get_html_image_with_boxes,
+)
 from ..torch_util import (
     get_global_rank,
     get_world_size,
 )
-from ..util import flatten_list, extract_points, extract_bboxes, extract_points_from_point_count
+from ..util import (
+    flatten_list,
+    extract_points,
+    extract_bboxes,
+    extract_points_from_point_count,
+)
 
 log = logging.getLogger(__name__)
 
@@ -42,13 +60,14 @@ def get_openai_key():
 
 def mean_metric(v):
     metric = MeanMetric(nan_strategy="error")
-    metric.update(np.mean(v) if len(v)>0 else 0, len(v))
+    metric.update(np.mean(v) if len(v) > 0 else 0, len(v))
     return metric
 
 
 @dataclasses.dataclass
 class HtmlTable:
     """Returned as special metric for visualizing predictions"""
+
     rows: List[Dict[str, Any]]
 
     def get_html(self):
@@ -60,15 +79,23 @@ def annotation_to_box(points, point_dist=4):
     for point in points:
         if len(point) == 2:
             x, y = point
-            to_show.append([x-point_dist, y-point_dist, x+point_dist, y+point_dist])
+            to_show.append(
+                [x - point_dist, y - point_dist, x + point_dist, y + point_dist]
+            )
         else:
             to_show.append(point)
     return to_show
 
 
 def gather_examples_as_html(
-    n_examples, voc, metadatas, predictions,
-    scores=None, fix_width=True, pred_points=None, gt_points=None
+    n_examples,
+    voc,
+    metadatas,
+    predictions,
+    scores=None,
+    fix_width=True,
+    pred_points=None,
+    gt_points=None,
 ) -> HtmlTable:
     """Builds a HTML table visualization of the predictions"""
 
@@ -81,7 +108,9 @@ def gather_examples_as_html(
     new_tokens = predictions["predictions"]
     prompt_tokens = predictions["prompts"]
     for ix in range(n):
-        prompt_text = postprocess_prompt(voc.decode(prompt_tokens[ix][prompt_tokens[ix] >= 0]))
+        prompt_text = postprocess_prompt(
+            voc.decode(prompt_tokens[ix][prompt_tokens[ix] >= 0])
+        )
         metadata = metadatas[ix]
         pred_seq = new_tokens[ix]
         pred_txt = voc.decode(pred_seq[pred_seq >= 0])
@@ -89,13 +118,15 @@ def gather_examples_as_html(
         row = dict()
         image_src = None
         if "image_url" in metadata:
-            image_src = metadata['image_url']
+            image_src = metadata["image_url"]
         elif "image" in metadata:
             with Image.open(metadata["image"]) as img:
                 image_data = io.BytesIO()
-                img.save(image_data, format='JPEG')
+                img.save(image_data, format="JPEG")
                 image_data = image_data.getvalue()
-            image_src = f'data:image/jpeg;base64,{base64.b64encode(image_data).decode()}'
+            image_src = (
+                f"data:image/jpeg;base64,{base64.b64encode(image_data).decode()}"
+            )
         if image_src is not None:
             ex_pred_points, gt_pred_points = None, None
             if pred_points is not None:
@@ -103,13 +134,23 @@ def gather_examples_as_html(
             if gt_points is not None:
                 gt_pred_points = gt_points[ix]
             if ex_pred_points is None and gt_pred_points is None:
-                row["image"] = f"<img style=\"max-height:500px;max-width:500px;height:auto;width:auto;\" src={image_src}><img>"
+                row["image"] = (
+                    f'<img style="max-height:500px;max-width:500px;height:auto;width:auto;" src={image_src}><img>'
+                )
             else:
                 to_show = []
                 if ex_pred_points is not None:
-                    to_show.append(BoxesToVisualize(annotation_to_box(ex_pred_points), "blue", format="xyxy"))
+                    to_show.append(
+                        BoxesToVisualize(
+                            annotation_to_box(ex_pred_points), "blue", format="xyxy"
+                        )
+                    )
                 if gt_pred_points is not None:
-                    to_show.append(BoxesToVisualize(annotation_to_box(gt_pred_points, 3), "green", format="xyxy"))
+                    to_show.append(
+                        BoxesToVisualize(
+                            annotation_to_box(gt_pred_points, 3), "green", format="xyxy"
+                        )
+                    )
                 row["image"] = get_html_image_with_boxes(image_src, to_show)
         row["prompt"] = html_escape(prompt_text)
         row["prediction"] = html_escape(pred_txt)
@@ -149,7 +190,6 @@ class Evaluator:
 
 
 class SavePredictions(Evaluator):
-
     @staticmethod
     def get_file_name(step, process_index):
         filename = ""
@@ -160,15 +200,13 @@ class SavePredictions(Evaluator):
         filename += "predictions"
         return filename
 
-    def __init__(self, output_dir, json=True, save_tokens=True,
-                 log_examples=10):
+    def __init__(self, output_dir, json=True, save_tokens=True, log_examples=10):
         self.save_tokens = save_tokens
         self.output_dir = output_dir
         self.log_examples = log_examples
         self.json = json
 
-    def __call__(self, metadatas, predictions, tokenizer,
-                 step=None, scores=None):
+    def __call__(self, metadatas, predictions, tokenizer, step=None, scores=None):
         if not self.output_dir.startswith("gs://"):
             if not os.path.exists(self.output_dir):
                 Path(self.output_dir).mkdir(parents=True, exist_ok=True)
@@ -182,15 +220,19 @@ class SavePredictions(Evaluator):
             if not np.any(tok == tokenizer.eos_token_id):
                 n_no_eos += 1
         if n_no_eos > 0:
-            logging.warning(f"{n_no_eos}/{len(new_tokens)} ({n_no_eos/len(new_tokens):00.4f}) "
-                            f"examples have no EOS, your inference tokens might be too short")
+            logging.warning(
+                f"{n_no_eos}/{len(new_tokens)} ({n_no_eos / len(new_tokens):00.4f}) "
+                f"examples have no EOS, your inference tokens might be too short"
+            )
 
         for ex_ix, pred_seq in enumerate(new_tokens):
             text = tokenizer.decode(pred_seq[pred_seq >= 0])
             json_row = dict(prediction=text)
             if self.save_tokens:
                 json_row["n_tokens"] = pred_seq.tolist()
-            prompt_text = postprocess_prompt(tokenizer.decode(prompt_tokens[ex_ix][prompt_tokens[ex_ix] >= 0]))
+            prompt_text = postprocess_prompt(
+                tokenizer.decode(prompt_tokens[ex_ix][prompt_tokens[ex_ix] >= 0])
+            )
             if tokenizer.adds_space:
                 sep = " "
             else:
@@ -198,11 +240,13 @@ class SavePredictions(Evaluator):
             json_row["prompt"] = prompt_text
             metadata = metadatas[ex_ix]
             if ex_ix < self.log_examples:
-                log.info("*"*30)
+                log.info("*" * 30)
                 if "example_id" in metadata:
-                    log.info(metadata['example_id'])
-                log.info(' '.join((prompt_text + sep + text).split()))
-            json_row.update({k: v for k, v in metadata.items() if isinstance(v, (str, float, int))})
+                    log.info(metadata["example_id"])
+                log.info(" ".join((prompt_text + sep + text).split()))
+            json_row.update(
+                {k: v for k, v in metadata.items() if isinstance(v, (str, float, int))}
+            )
             json_data.append(json_row)
 
         json_file = None
@@ -213,14 +257,16 @@ class SavePredictions(Evaluator):
             log.info("Save prediction JSON")
             if get_world_size() > 1 and self.json:
                 if get_global_rank() == 0:
-                    all_predictions = [None]*get_world_size()
+                    all_predictions = [None] * get_world_size()
                     dist.gather_object(json_data, all_predictions)
                     json_data = flatten_list(all_predictions)
                 else:
                     dist.gather_object(json_data, None)
 
             if get_global_rank() == 0:
-                json_file = os.path.join(self.output_dir, self.get_file_name(step, None) + ".json")
+                json_file = os.path.join(
+                    self.output_dir, self.get_file_name(step, None) + ".json"
+                )
                 with open(json_file, "w") as f:
                     json.dump(json_data, f)
                 log.info("done saving json")
@@ -256,7 +302,7 @@ def is_point_in_region(point: Tuple[float, float], mask: np.ndarray) -> bool:
 def is_valid_format(input_string):
     # Define the regular expression pattern
     pattern = re.compile(
-        r'^(\(\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\)\n?)+$|'
+        r"^(\(\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*\)\n?)+$|"
         r'^<point\s+x="\s*\d+(\.\d+)?"\s+y="\s*\d+(\.\d+)?"\s+alt="[\s\S]*?">[\s\S]*?</point>$|'
         r'^<points\s+(x\d+="\s*\d+(\.\d+)?"\s+y\d+="\s*\d+(\.\d+)?"\s+)+alt="[\s\S]*?">[\s\S]*?</points>$|'
         r'^<point\s+p=\s*\d{3}\s*,\s*\d{3}\s+alt="[\s\S]*?">[\s\S]*?</point>$|'
@@ -270,7 +316,9 @@ def is_valid_format(input_string):
     return match is not None
 
 
-def compute_precision(row_ind: np.ndarray, col_ind: np.ndarray, preds: np.ndarray, masks: List[np.ndarray]):
+def compute_precision(
+    row_ind: np.ndarray, col_ind: np.ndarray, preds: np.ndarray, masks: List[np.ndarray]
+):
     cnt = 0
     for i, j in zip(row_ind, col_ind):
         if is_point_in_region(preds[i], masks[j]):
@@ -278,7 +326,9 @@ def compute_precision(row_ind: np.ndarray, col_ind: np.ndarray, preds: np.ndarra
     return cnt / len(preds)
 
 
-def compute_recall(row_ind: np.ndarray, col_ind: np.ndarray, preds: np.ndarray, masks: List[np.ndarray]):
+def compute_recall(
+    row_ind: np.ndarray, col_ind: np.ndarray, preds: np.ndarray, masks: List[np.ndarray]
+):
     cnt = 0
     for i, j in zip(row_ind, col_ind):
         if is_point_in_region(preds[i], masks[j]):
@@ -299,8 +349,8 @@ def compute_stepwise_accuracy(ground_truth, predictions, target_bbs):
         action_str = action_str.strip().lower()
 
         def get_coords(action):
-            coords = re.findall(r'\d+(?:\.\d+)?', action)
-            return (float(coords[0]), float(coords[1])) if len(coords) >= 2 else ''
+            coords = re.findall(r"\d+(?:\.\d+)?", action)
+            return (float(coords[0]), float(coords[1])) if len(coords) >= 2 else ""
 
         if action_str.startswith("click"):
             return {"type": "click", "coords": get_coords(action_str)}
@@ -309,7 +359,12 @@ def compute_stepwise_accuracy(ground_truth, predictions, target_bbs):
         elif action_str.startswith("type"):
             return {"type": "type", "text": action_str[5:]}
         elif action_str.startswith("scroll"):
-            return {"type": "scroll", "direction": action_str.split()[1] if len(action_str.split()) >= 2 else ''}
+            return {
+                "type": "scroll",
+                "direction": action_str.split()[1]
+                if len(action_str.split()) >= 2
+                else "",
+            }
         elif action_str == "wait":
             return {"type": "wait"}
         elif action_str.startswith("open app"):
@@ -322,14 +377,14 @@ def compute_stepwise_accuracy(ground_truth, predictions, target_bbs):
 
     def within_bounding_box(coords, box):
         x, y = coords[0], coords[1]
-        bbox_values = re.findall(r'\d+\.\d+', box)
+        bbox_values = re.findall(r"\d+\.\d+", box)
         x1, y1, x2, y2 = [float(val) for val in bbox_values]
         return x1 <= x <= x2 and y1 <= y <= y2
 
     all_predictions = []
     metrics = []
     for gt_action, pred_action, gt_box in zip(ground_truth, predictions, target_bbs):
-        metric = 'incorrect'  # default to a prediction being incorrect until proven otherwise
+        metric = "incorrect"  # default to a prediction being incorrect until proven otherwise
 
         gt_parsed = parse_action(gt_action)
         pred_parsed = parse_action(pred_action)
@@ -337,34 +392,51 @@ def compute_stepwise_accuracy(ground_truth, predictions, target_bbs):
         if gt_parsed["type"] == pred_parsed["type"]:
             if gt_parsed["type"] in ["click", "long press"]:
                 gt_coords = gt_parsed["coords"]
-                if "coords" in pred_parsed and pred_parsed['coords'] != '' and gt_box != None and gt_parsed['coords'] != '':
+                if (
+                    "coords" in pred_parsed
+                    and pred_parsed["coords"] != ""
+                    and gt_box != None
+                    and gt_parsed["coords"] != ""
+                ):
                     pred_coords = pred_parsed["coords"]
                     if within_bounding_box(pred_coords, gt_box):
                         correct_predictions += 1
-                        metric = 'correct'
-            elif gt_parsed["type"] == "type" and gt_parsed["text"] == pred_parsed["text"]:
+                        metric = "correct"
+            elif (
+                gt_parsed["type"] == "type" and gt_parsed["text"] == pred_parsed["text"]
+            ):
                 correct_predictions += 1
-                metric = 'correct'
-            elif gt_parsed["type"] == "scroll" and gt_parsed["direction"] == pred_parsed["direction"]:
+                metric = "correct"
+            elif (
+                gt_parsed["type"] == "scroll"
+                and gt_parsed["direction"] == pred_parsed["direction"]
+            ):
                 correct_predictions += 1
-                metric = 'correct'
+                metric = "correct"
             elif gt_parsed["type"] in ["navigate home", "navigate back", "wait"]:
                 correct_predictions += 1  # These actions have no parameters to compare
-                metric = 'correct'
-            elif gt_parsed["type"] == "open_app" and pred_parsed["app_name"] == gt_parsed["app_name"]:
+                metric = "correct"
+            elif (
+                gt_parsed["type"] == "open_app"
+                and pred_parsed["app_name"] == gt_parsed["app_name"]
+            ):
                 correct_predictions += 1
-                metric = 'correct'
+                metric = "correct"
             else:
                 if gt_parsed == pred_parsed:
                     correct_predictions += 1
-                    metric = 'correct'
+                    metric = "correct"
         else:
             # Consider open_app and click on app name equivalent
             if pred_parsed["type"] == "click" and gt_parsed["type"] == "open_app":
-                if gt_box not in [None, ''] and "coords" in pred_parsed and pred_parsed['coords'] != '':
-                    if within_bounding_box(pred_parsed['coords'], gt_box):
+                if (
+                    gt_box not in [None, ""]
+                    and "coords" in pred_parsed
+                    and pred_parsed["coords"] != ""
+                ):
+                    if within_bounding_box(pred_parsed["coords"], gt_box):
                         correct_predictions += 1
-                        metric = 'correct'
+                        metric = "correct"
         all_predictions.append(correct_predictions)
         metrics.append(metric)
     # max with 1 since its technically possible for a node to get 0 valid examples
@@ -372,7 +444,6 @@ def compute_stepwise_accuracy(ground_truth, predictions, target_bbs):
 
 
 class AndroidControlEval(Evaluator):
-
     def __init__(self, n_to_log=None):
         self.n_to_log = n_to_log
 
@@ -407,7 +478,7 @@ class AndroidControlEval(Evaluator):
                 })
         """
 
-        out = {'accuracy': mean_metric(accuracy)}
+        out = {"accuracy": mean_metric(accuracy)}
         if self.n_to_log:
             out["predictions"] = gather_examples_as_html(
                 self.n_to_log, tokenizer, metadatas, predictions, accuracy
@@ -416,7 +487,6 @@ class AndroidControlEval(Evaluator):
 
 
 class PointingEval(Evaluator):
-
     def __init__(self, n_to_log=None):
         self.n_to_log = n_to_log
 
@@ -436,7 +506,9 @@ class PointingEval(Evaluator):
             abs_preds = extract_points(pred, image_w, image_h)
 
             if len(answer_points) == 0:
-                precision = recall = f1 = float(abs_preds is None or len(abs_preds) == 0)
+                precision = recall = f1 = float(
+                    abs_preds is None or len(abs_preds) == 0
+                )
                 abs_gts = None
             else:
                 abs_gts = answer_points
@@ -460,8 +532,12 @@ class PointingEval(Evaluator):
 
         if "was_lowered" in metadatas[0]:
             # Get a score with and without lowering
-            lowered = np.array([(x["was_lowered"] or x["was_lowered"] is None) for x in metadatas])
-            nocase = np.array([(not x["was_lowered"] or x["was_lowered"] is None) for x in metadatas])
+            lowered = np.array(
+                [(x["was_lowered"] or x["was_lowered"] is None) for x in metadatas]
+            )
+            nocase = np.array(
+                [(not x["was_lowered"] or x["was_lowered"] is None) for x in metadatas]
+            )
             for k, v in scores.items():
                 v = np.array(v)
                 out[k] = mean_metric(v[nocase])
@@ -471,16 +547,22 @@ class PointingEval(Evaluator):
                 out[k] = mean_metric(v)
 
         if self.n_to_log:
-            per_example_scores = [{k: scores[k][i] for k in scores} for i in range(len(new_tokens))]
+            per_example_scores = [
+                {k: scores[k][i] for k in scores} for i in range(len(new_tokens))
+            ]
             out["predictions"] = gather_examples_as_html(
-                self.n_to_log, vocab, metadatas, predictions, per_example_scores,
-                pred_points=pred_points, gt_points=gt_points
+                self.n_to_log,
+                vocab,
+                metadatas,
+                predictions,
+                per_example_scores,
+                pred_points=pred_points,
+                gt_points=gt_points,
             )
         return out
 
 
 class PointCountEval(Evaluator):
-
     def __init__(self, n_to_log=None):
         self.n_to_log = n_to_log
 
@@ -541,7 +623,11 @@ class PointCountEval(Evaluator):
                 image_w, image_h = metadata["image_size"]
                 try:
                     if len(re.findall(r"(\d+\.\d+),\s*(\d+\.\d+)", original_pred)) > 0:
-                        abs_preds = np.array(extract_points_from_point_count(original_pred, image_w, image_h))
+                        abs_preds = np.array(
+                            extract_points_from_point_count(
+                                original_pred, image_w, image_h
+                            )
+                        )
                 except Exception as e:
                     print("Failed extracting pred points with error - ", e)
                     abs_preds = None
@@ -555,16 +641,34 @@ class PointCountEval(Evaluator):
             pred_points.append(abs_preds)
             gt_points.append(abs_gts)
 
-        num_examples_per_device = torch.tensor(len(new_tokens), dtype=torch.int32, device=torch.device("cuda"))
-        num_examples = torch.zeros(get_world_size(), dtype=torch.int32, device=torch.device("cuda"))
+        num_examples_per_device = torch.tensor(
+            len(new_tokens), dtype=torch.int32, device=torch.device("cuda")
+        )
+        num_examples = torch.zeros(
+            get_world_size(), dtype=torch.int32, device=torch.device("cuda")
+        )
         dist.all_gather_into_tensor(num_examples, num_examples_per_device)
         max_num_examples = num_examples.detach().cpu().max().item()
-        gt_counts_per_device = torch.tensor(gt_counts_per_device, dtype=torch.int32, device=torch.device("cuda"))
+        gt_counts_per_device = torch.tensor(
+            gt_counts_per_device, dtype=torch.int32, device=torch.device("cuda")
+        )
         gt_counts_per_device = torch.cat(
-            [gt_counts_per_device, torch.full((max_num_examples - len(new_tokens),), -1, dtype=torch.int32, device=torch.device("cuda"))],
+            [
+                gt_counts_per_device,
+                torch.full(
+                    (max_num_examples - len(new_tokens),),
+                    -1,
+                    dtype=torch.int32,
+                    device=torch.device("cuda"),
+                ),
+            ],
             dim=0,
         )
-        gt_counts = torch.zeros(get_world_size() * max_num_examples, dtype=torch.int32, device=torch.device("cuda"))
+        gt_counts = torch.zeros(
+            get_world_size() * max_num_examples,
+            dtype=torch.int32,
+            device=torch.device("cuda"),
+        )
         dist.all_gather_into_tensor(gt_counts, gt_counts_per_device)
         gt_counts = gt_counts.detach().cpu().numpy()
         gt_counts = np.sort(np.unique(gt_counts[gt_counts >= 0]))
@@ -578,8 +682,13 @@ class PointCountEval(Evaluator):
 
         if self.n_to_log:
             out["predictions"] = gather_examples_as_html(
-                self.n_to_log, vocab, metadatas, predictions, all_scores["correct"],
-                pred_points=pred_points, gt_points=gt_points
+                self.n_to_log,
+                vocab,
+                metadatas,
+                predictions,
+                all_scores["correct"],
+                pred_points=pred_points,
+                gt_points=gt_points,
             )
         return out
 
@@ -611,12 +720,12 @@ class MathVistaEval(Evaluator):
         out = dict(score=mean_metric(scores))
         if self.n_to_log:
             out["predictions"] = gather_examples_as_html(
-                self.n_to_log, vocab, metadatas, predictions, scores)
+                self.n_to_log, vocab, metadatas, predictions, scores
+            )
         return out
 
 
 class VqaEval(Evaluator):
-
     def __init__(self, score_fn=("vqa_score",), n_to_log=None):
         self.metric = score_fn
         assert len(set(self.metric)) == len(self.metric)
@@ -666,7 +775,10 @@ class VqaEval(Evaluator):
                     options = metadata["option_names"]
                     get_answer_idx = select_mc_option(pred, options)
                     score = get_answer_idx == metadata["answer_idx"]
-                elif metric in ["mc_ai2d_transparent", "mc_ai2d_opaque"]: # mc split by transparency
+                elif metric in [
+                    "mc_ai2d_transparent",
+                    "mc_ai2d_opaque",
+                ]:  # mc split by transparency
                     has_transparent_box = metadata["has_transparent_box"]
                     abc_label = metadata["abc_label"]
                     # for abc_label, either evaluate on opaque or transparent boxes
@@ -689,11 +801,12 @@ class VqaEval(Evaluator):
                     data_type = metadata["metadata/data_type"][ex_ix].decode("utf-8")
                     score_lists[f"seed_bench_{data_type}_score"].append(score)
                 elif metric == "math_vista_score":
-                    score = math_vista_score(metadata["answer"], pred, metadata, get_openai_key())
+                    score = math_vista_score(
+                        metadata["answer"], pred, metadata, get_openai_key()
+                    )
                 else:
                     raise NotImplementedError(metric)
                 score_lists[metric].append(score)
-
 
         if "is_human" in metadatas[0]:
             is_human = np.array([x["is_human"] for x in metadatas])
@@ -710,21 +823,22 @@ class VqaEval(Evaluator):
             if len(score_to_log) != len(metadatas):
                 score_to_log = None
             out["predictions"] = gather_examples_as_html(
-                self.n_to_log, vocab, metadatas, predictions, score_to_log)
+                self.n_to_log, vocab, metadatas, predictions, score_to_log
+            )
         return out
 
 
 WORD_TO_NUM = {
-    'one': 1,
-    'two': 2,
-    'three': 3,
-    'four': 4,
-    'five': 5,
-    'six': 6,
-    'seven': 7,
-    'eight': 8,
-    'nine': 9,
-    'zero': 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "zero": 0,
     "ten": 10,
     "eleven": 11,
     "twelve": 12,
@@ -735,12 +849,11 @@ WORD_TO_NUM = {
     "seventeen": 17,
     "eighteen": 18,
     "nineteen": 19,
-    "twenty": 20
+    "twenty": 20,
 }
 
 
 class CountEval:
-
     def __init__(self, n_to_log=None):
         self.n_to_log = n_to_log
 
@@ -796,8 +909,13 @@ class CountEval:
             out[k] = mean_metric(vals)
         if self.n_to_log:
             out["predictions"] = gather_examples_as_html(
-                self.n_to_log, tokenizer, metadata, predictions, all_scores["correct"],
-                all_scores["valid"], pred_points=points
+                self.n_to_log,
+                tokenizer,
+                metadata,
+                predictions,
+                all_scores["correct"],
+                all_scores["valid"],
+                pred_points=points,
             )
         return out
 
@@ -883,7 +1001,9 @@ class ClockEval:
                     second_close = 0
                 scores["second_correct"] = second_correct
                 scores["second_close"] = second_close
-                scores["all_correct"] = minute_correct and hour_correct and second_correct
+                scores["all_correct"] = (
+                    minute_correct and hour_correct and second_correct
+                )
                 scores["all_close"] = minute_close and hour_correct and second_close
             else:
                 scores["all_correct"] = minute_correct and hour_correct
@@ -907,11 +1027,12 @@ class ClockEval:
             out[k] = mean_metric([x[k] for x in all_scores if k in x])
         if self.n_to_log:
             out["predictions"] = gather_examples_as_html(
-                self.n_to_log, tokenizer, metadatas, predictions, to_show)
+                self.n_to_log, tokenizer, metadatas, predictions, to_show
+            )
         return out
 
 
-def compute_area(bbox: list, invalid: float=None) -> float:
+def compute_area(bbox: list, invalid: float = None) -> float:
     x1, y1, x2, y2 = bbox
 
     if (x2 <= x1) or (y2 <= y1):
@@ -922,7 +1043,7 @@ def compute_area(bbox: list, invalid: float=None) -> float:
     return area
 
 
-def compute_iou(bbox1: list, bbox2: list, verbose: bool=False):
+def compute_iou(bbox1: list, bbox2: list, verbose: bool = False):
     x1, y1, x2, y2 = bbox1
     x1_, y1_, x2_, y2_ = bbox2
 
@@ -962,7 +1083,7 @@ class RefExpEval:
 
             pred_box = extract_bboxes(pred, image_w, image_h)
             x0, y0, w, h = inputs["metadata/bbox"][ex_ix]
-            ref_box = [x0, y0, x0+w, y0+h]
+            ref_box = [x0, y0, x0 + w, y0 + h]
             gt_points.append([ref_box])
             if pred_box:
                 iou = compute_iou(pred_box[0], ref_box)
@@ -970,7 +1091,7 @@ class RefExpEval:
             else:
                 points.append([])
                 iou = 0
-            scores.append(dict(acc=iou>0.5, iou=iou, valid=bool(pred_box)))
+            scores.append(dict(acc=iou > 0.5, iou=iou, valid=bool(pred_box)))
 
         out = {}
         for k in scores[0]:

@@ -16,7 +16,6 @@ import numpy as np
 import requests
 import urllib3
 from PIL import ImageFile
-from urllib3.exceptions import MaxRetryError
 from urllib3.util import Retry
 from requests.adapters import HTTPAdapter
 
@@ -47,7 +46,7 @@ class DownloadError:
 @dataclasses.dataclass
 class ImageError:
     url: str
-    exception: Exception=None
+    exception: Exception = None
 
 
 def compute_hash(string: Union[str, bytes]) -> str:
@@ -64,19 +63,15 @@ def _download_images(args):
 
     # Create and configure session
     session = requests.Session()
-    retries = Retry(
-        total=3,
-        backoff_factor=1,
-        status_forcelist=[429]
-    )
-    session.mount('http://', HTTPAdapter(max_retries=retries))
-    session.mount('https://', HTTPAdapter(max_retries=retries))
+    retries = Retry(total=3, backoff_factor=1, status_forcelist=[429])
+    session.mount("http://", HTTPAdapter(max_retries=retries))
+    session.mount("https://", HTTPAdapter(max_retries=retries))
 
     if exists(cache_file):
         with open(cache_file, "rb") as f:
             image_bytes = f.read()
     elif cache_only:
-        return DownloadError(url, ValueError('Not in cache'))
+        return DownloadError(url, ValueError("Not in cache"))
     else:
         try:
             response = session.get(url, timeout=5)
@@ -84,14 +79,14 @@ def _download_images(args):
             image_bytes = response.content
         except Exception as e:
             # Write response to file so we know the URL failed and won't try it again
-            with open(cache_file, 'w') as f:
+            with open(cache_file, "w") as f:
                 f.write(str(e))
             return DownloadError(url, e)
 
         # Else write the file bytes even though we have not confirmed the result is an image
         # Write to a tmp file and rename to ensure we don't only partially write an image if
         # we crash mid-write
-        with open(cache_file + ".tmp", 'wb') as f:
+        with open(cache_file + ".tmp", "wb") as f:
             f.write(image_bytes)
         rename(cache_file + ".tmp", cache_file)
 
@@ -120,7 +115,7 @@ def download_pixmo_urls(
     check_sha,
     request_kwargs=None,
     cache_only=False,
-    verify=True
+    verify=True,
 ) -> Dict[str, str]:
     """Download urls from a PixMo dataset, return a map of urls->filename"""
     if check_sha:
@@ -142,17 +137,24 @@ def download_pixmo_urls(
         urllib3.disable_warnings()
 
     images = []
-    to_save = [(url, image_sha, check_sha, cache_only, request_kwargs) for url, image_sha in urls_and_shas]
+    to_save = [
+        (url, image_sha, check_sha, cache_only, request_kwargs)
+        for url, image_sha in urls_and_shas
+    ]
     pbar = tqdm(total=len(to_save), desc=f"{0}/{len(to_save)}")
     image_error, download_err, success = 0, 0, 0
 
     if n_processes != 1:
+
         def _iter():
-            with multiprocessing.Pool(processes=n_processes, initializer=setup_pil) as pool:
+            with multiprocessing.Pool(
+                processes=n_processes, initializer=setup_pil
+            ) as pool:
                 for val in pool.imap_unordered(_download_images, to_save):
                     yield val
     else:
         setup_pil()
+
         def _iter():
             for val in to_save:
                 yield _download_images(val)
@@ -169,14 +171,18 @@ def download_pixmo_urls(
             success += 1
         pbar.update(1)
         pbar.set_description(
-            f"dl_er={download_err} file_err={image_error}",
-            refresh=False)
+            f"dl_er={download_err} file_err={image_error}", refresh=False
+        )
     pbar.close()
-    logging.info(f"Got images for {len(found_urls)}/{len(urls_and_shas)} ({len(found_urls)/len(urls_and_shas)*100:0.2f}%) image URLs")
+    logging.info(
+        f"Got images for {len(found_urls)}/{len(urls_and_shas)} ({len(found_urls) / len(urls_and_shas) * 100:0.2f}%) image URLs"
+    )
     return found_urls
 
 
-def filter_and_group_data(data: datasets.Dataset, url_to_path: Dict, check_sha: bool) -> datasets.Dataset:
+def filter_and_group_data(
+    data: datasets.Dataset, url_to_path: Dict, check_sha: bool
+) -> datasets.Dataset:
     """
     Groups a pixmo datasets so each row contains all annotation for one image, and add
     images path using `url_to_path`, removing rows that do not exist in `url_to_path`
@@ -194,7 +200,9 @@ def filter_and_group_data(data: datasets.Dataset, url_to_path: Dict, check_sha: 
             image=url_to_path[image_url],
         )
         if "image_sha256" in examples[0] and not check_sha:
-            assert all(examples[0]["image_sha256"] == ex["image_sha256"] for ex in examples)
+            assert all(
+                examples[0]["image_sha256"] == ex["image_sha256"] for ex in examples
+            )
             grouped["original_sha256"] = examples[0]["image_sha256"]
         annotations = defaultdict(list)
         for ex in examples:

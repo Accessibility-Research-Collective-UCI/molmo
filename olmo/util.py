@@ -1,5 +1,6 @@
 import hashlib
 import io
+
 # import ujson as json
 import json
 import logging
@@ -169,9 +170,16 @@ def excepthook(exctype, value, traceback):
     elif issubclass(exctype, OLMoCliError):
         rich.get_console().print(f"[yellow]{value}[/]", highlight=False)
     elif issubclass(exctype, OLMoError):
-        rich.get_console().print(Text(f"{exctype.__name__}:", style="red"), value, highlight=False)
+        rich.get_console().print(
+            Text(f"{exctype.__name__}:", style="red"), value, highlight=False
+        )
     else:
-        log.critical("Uncaught %s: %s", exctype.__name__, value, exc_info=(exctype, value, traceback))
+        log.critical(
+            "Uncaught %s: %s",
+            exctype.__name__,
+            value,
+            exc_info=(exctype, value, traceback),
+        )
 
 
 def install_excepthook():
@@ -245,12 +253,16 @@ class RichHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            if hasattr(record.msg, "__rich__") or hasattr(record.msg, "__rich_console__"):
+            if hasattr(record.msg, "__rich__") or hasattr(
+                record.msg, "__rich_console__"
+            ):
                 self.console.print(record.msg)
             else:
                 msg: Any = record.msg
                 if isinstance(record.msg, str):
-                    msg = self.render_message(record=record, message=record.getMessage())
+                    msg = self.render_message(
+                        record=record, message=record.getMessage()
+                    )
                 renderables = [
                     self.get_time_text(record),
                     self.get_level_text(record),
@@ -264,7 +276,9 @@ class RichHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
-    def render_message(self, *, record: logging.LogRecord, message: str) -> ConsoleRenderable:
+    def render_message(
+        self, *, record: logging.LogRecord, message: str
+    ) -> ConsoleRenderable:
         use_markup = getattr(record, "markup", self.markup)
         message_text = Text.from_markup(message) if use_markup else Text(message)
 
@@ -281,13 +295,17 @@ class RichHandler(logging.Handler):
 
     def get_level_text(self, record: logging.LogRecord) -> Text:
         level_name = record.levelname
-        level_text = Text.styled(level_name.ljust(8), f"logging.level.{level_name.lower()}")
+        level_text = Text.styled(
+            level_name.ljust(8), f"logging.level.{level_name.lower()}"
+        )
         level_text.style = "log.level"
         level_text.end = " "
         return level_text
 
     def get_location_text(self, record: logging.LogRecord) -> Text:
-        name_and_line = f"{record.name}:{record.lineno}" if record.name != "root" else "root"
+        name_and_line = (
+            f"{record.name}:{record.lineno}" if record.name != "root" else "root"
+        )
         text = f"[{name_and_line}, rank={record.local_rank}]"  # type: ignore
         return Text(text, style="log.path")
 
@@ -323,7 +341,10 @@ def get_progress_bar() -> Progress:
 
 
 def resource_path(
-    folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None, progress: Optional[Progress] = None
+    folder: PathOrStr,
+    fname: str,
+    local_cache: Optional[PathOrStr] = None,
+    progress: Optional[Progress] = None,
 ) -> Path:
     if local_cache is not None and (local_path := Path(local_cache) / fname).is_file():
         log.info(f"Found local cache of {fname} at {local_path}")
@@ -351,7 +372,9 @@ def file_size(path: PathOrStr) -> int:
         elif parsed.scheme == "file":
             return file_size(str(path).replace("file://", "", 1))
         else:
-            raise NotImplementedError(f"file size not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(
+                f"file size not implemented for '{parsed.scheme}' files"
+            )
     else:
         return os.stat(path).st_size
 
@@ -364,11 +387,21 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
     assert source.is_file()
     parsed = urlparse(target)
     if parsed.scheme == "gs":
-        _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
+        _gcs_upload(
+            source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite
+        )
     elif parsed.scheme in ("s3", "r2", "weka"):
-        _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
+        _s3_upload(
+            source,
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path.strip("/"),
+            save_overwrite=save_overwrite,
+        )
     else:
-        raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
+        raise NotImplementedError(
+            f"Upload not implemented for '{parsed.scheme}' scheme"
+        )
 
 
 def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> bytes:
@@ -377,19 +410,33 @@ def get_bytes_range(source: PathOrStr, bytes_start: int, num_bytes: int) -> byte
 
         parsed = urlparse(str(source))
         if parsed.scheme == "gs":
-            return _gcs_get_bytes_range(parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes)
+            return _gcs_get_bytes_range(
+                parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+            )
         elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_get_bytes_range(
-                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path.strip("/"),
+                bytes_start,
+                num_bytes,
             )
         elif parsed.scheme in ("http", "https"):
             return _http_get_bytes_range(
-                parsed.scheme, parsed.netloc, parsed.path.strip("/"), bytes_start, num_bytes
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path.strip("/"),
+                bytes_start,
+                num_bytes,
             )
         elif parsed.scheme == "file":
-            return get_bytes_range(str(source).replace("file://", "", 1), bytes_start, num_bytes)
+            return get_bytes_range(
+                str(source).replace("file://", "", 1), bytes_start, num_bytes
+            )
         else:
-            raise NotImplementedError(f"get bytes range not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(
+                f"get bytes range not implemented for '{parsed.scheme}' files"
+            )
     else:
         with open(source, "rb") as f:
             f.seek(bytes_start)
@@ -404,11 +451,15 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         if parsed.scheme == "gs":
             raise NotImplementedError
         elif parsed.scheme in ("s3", "r2", "weka"):
-            return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
+            return _s3_find_latest_checkpoint(
+                parsed.scheme, parsed.netloc, parsed.path.strip("/")
+            )
         elif parsed.scheme == "file":
             return find_latest_checkpoint(str(dir).replace("file://", "", 1))
         else:
-            raise NotImplementedError(f"find_latest_checkpoint not implemented for '{parsed.scheme}' files")
+            raise NotImplementedError(
+                f"find_latest_checkpoint not implemented for '{parsed.scheme}' files"
+            )
     else:
         latest_step = 0
         latest_checkpoint: Optional[Path] = None
@@ -419,7 +470,9 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
                 except ValueError:
                     continue
                 # We prioritize sharded checkpoints over unsharded checkpoints.
-                if step > latest_step or (step == latest_step and not path.name.endswith("-unsharded")):
+                if step > latest_step or (
+                    step == latest_step and not path.name.endswith("-unsharded")
+                ):
                     latest_step = step
                     latest_checkpoint = path
         return latest_checkpoint
@@ -432,7 +485,9 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     if not save_overwrite and blob.exists():
-        raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
+        raise FileExistsError(
+            f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it."
+        )
     blob.upload_from_filename(source)
 
 
@@ -451,7 +506,9 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     return blob.size
 
 
-def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
+def _gcs_get_bytes_range(
+    bucket_name: str, key: str, bytes_start: int, num_bytes: int
+) -> bytes:
     from google.api_core.exceptions import NotFound
     from google.cloud import storage as gcs
 
@@ -528,7 +585,12 @@ def _wait_before_retry(attempt: int):
 
 
 def _s3_upload(
-    source: Path, scheme: str, bucket_name: str, key: str, save_overwrite: bool = False, max_attempts: int = 3
+    source: Path,
+    scheme: str,
+    bucket_name: str,
+    key: str,
+    save_overwrite: bool = False,
+    max_attempts: int = 3,
 ):
     err: Optional[Exception] = None
     if not save_overwrite:
@@ -545,11 +607,18 @@ def _s3_upload(
                 err = e
 
             if attempt < max_attempts:
-                log.warning("%s failed attempt %d with retriable error: %s", _s3_upload.__name__, attempt, err)
+                log.warning(
+                    "%s failed attempt %d with retriable error: %s",
+                    _s3_upload.__name__,
+                    attempt,
+                    err,
+                )
                 _wait_before_retry(attempt)
 
         if err is not None:
-            raise OLMoNetworkError(f"Failed to check object existence during {scheme} upload") from err
+            raise OLMoNetworkError(
+                f"Failed to check object existence during {scheme} upload"
+            ) from err
 
     try:
         _get_s3_client(scheme).upload_file(source, bucket_name, key)
@@ -557,25 +626,39 @@ def _s3_upload(
         raise OLMoNetworkError(f"Failed to upload to {scheme}") from e
 
 
-def _s3_file_size(scheme: str, bucket_name: str, key: str, max_attempts: int = 3) -> int:
+def _s3_file_size(
+    scheme: str, bucket_name: str, key: str, max_attempts: int = 3
+) -> int:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
         try:
-            return _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)["ContentLength"]
+            return _get_s3_client(scheme).head_object(Bucket=bucket_name, Key=key)[
+                "ContentLength"
+            ]
         except boto_exceptions.ClientError as e:
             if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
                 raise FileNotFoundError(f"s3://{bucket_name}/{key}") from e
             err = e
 
         if attempt < max_attempts:
-            log.warning("%s failed attempt %d with retriable error: %s", _s3_file_size.__name__, attempt, err)
+            log.warning(
+                "%s failed attempt %d with retriable error: %s",
+                _s3_file_size.__name__,
+                attempt,
+                err,
+            )
             _wait_before_retry(attempt)
 
     raise OLMoNetworkError(f"Failed to get {scheme} file size") from err
 
 
 def _s3_get_bytes_range(
-    scheme: str, bucket_name: str, key: str, bytes_start: int, num_bytes: int, max_attempts: int = 3
+    scheme: str,
+    bucket_name: str,
+    key: str,
+    bytes_start: int,
+    num_bytes: int,
+    max_attempts: int = 3,
 ) -> bytes:
     err: Optional[Exception] = None
     for attempt in range(1, max_attempts + 1):
@@ -583,7 +666,9 @@ def _s3_get_bytes_range(
             return (
                 _get_s3_client(scheme)
                 .get_object(
-                    Bucket=bucket_name, Key=key, Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"
+                    Bucket=bucket_name,
+                    Key=key,
+                    Range=f"bytes={bytes_start}-{bytes_start + num_bytes - 1}",
                 )["Body"]
                 .read()
             )
@@ -599,7 +684,10 @@ def _s3_get_bytes_range(
 
         if attempt < max_attempts:
             log.warning(
-                "%s failed attempt %d with retriable error: %s", _s3_get_bytes_range.__name__, attempt, err
+                "%s failed attempt %d with retriable error: %s",
+                _s3_get_bytes_range.__name__,
+                attempt,
+                err,
             )
             _wait_before_retry(attempt)
 
@@ -613,10 +701,14 @@ def _s3_get_bytes_range(
     raise OLMoNetworkError(f"Failed to get bytes range from {scheme}") from err
 
 
-def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Optional[str]:
+def _s3_find_latest_checkpoint(
+    scheme: str, bucket_name: str, prefix: str
+) -> Optional[str]:
     if not prefix.endswith("/"):
         prefix = f"{prefix}/"
-    response = _get_s3_client(scheme).list_objects(Bucket=bucket_name, Prefix=prefix, Delimiter="/")
+    response = _get_s3_client(scheme).list_objects(
+        Bucket=bucket_name, Prefix=prefix, Delimiter="/"
+    )
     assert not response["IsTruncated"]  # need to handle this if it happens
     latest_step = 0
     latest_checkpoint: Optional[str] = None
@@ -636,7 +728,9 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
         except FileNotFoundError:
             continue
         # We prioritize sharded checkpoints over unsharded ones.
-        if step > latest_step or (step == latest_step and not checkpoint_name.endswith("-unsharded")):
+        if step > latest_step or (
+            step == latest_step and not checkpoint_name.endswith("-unsharded")
+        ):
             latest_step = step
             latest_checkpoint = f"{scheme}://{bucket_name}/{prefix}"
     return latest_checkpoint
@@ -649,16 +743,19 @@ def _http_file_size(scheme: str, host_name: str, path: str) -> int:
     return int(response.headers.get("content-length"))
 
 
-def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
+def _http_get_bytes_range(
+    scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int
+) -> bytes:
     import requests
 
     response = requests.get(
-        f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
+        f"{scheme}://{host_name}/{path}",
+        headers={"Range": f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"},
     )
     result = response.content
-    assert (
-        len(result) == num_bytes
-    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+    assert len(result) == num_bytes, (
+        f"expected {num_bytes} bytes, got {len(result)}"
+    )  # Some web servers silently ignore range requests and send everything
     return result
 
 
@@ -711,7 +808,7 @@ def split_dict_of_list(batch, split_size):
 def split_list(lst, split_size):
     assert len(lst) % split_size == 0
     n = len(lst) // split_size
-    return [lst[i*split_size:(i+1)*split_size] for i in range(n)]
+    return [lst[i * split_size : (i + 1) * split_size] for i in range(n)]
 
 
 def flatten_list(lst):
@@ -772,10 +869,14 @@ class WekaClient(SchemeClient):
     def _ensure_object_info(self):
         if self.object_info is None:
             try:
-                self.object_info = self.s3.head_object(Bucket=self.bucket_name, Key=self.path)
+                self.object_info = self.s3.head_object(
+                    Bucket=self.bucket_name, Key=self.path
+                )
             except boto_exceptions.ClientError as e:
                 if e.response["ResponseMetadata"]["HTTPStatusCode"] == 404:
-                    raise FileNotFoundError(f"weka://{self.bucket_name}/{self.path}") from e
+                    raise FileNotFoundError(
+                        f"weka://{self.bucket_name}/{self.path}"
+                    ) from e
                 raise e
 
     def get_etag(self) -> Optional[str]:
@@ -789,11 +890,15 @@ class WekaClient(SchemeClient):
         return self.object_info.get("ContentLength")
 
     def get_resource(self, temp_file: io.BufferedWriter) -> None:
-        self.s3.download_fileobj(Fileobj=temp_file, Bucket=self.bucket_name, Key=self.path)
+        self.s3.download_fileobj(
+            Fileobj=temp_file, Bucket=self.bucket_name, Key=self.path
+        )
 
     def get_bytes_range(self, index: int, length: int) -> bytes:
         response = self.s3.get_object(
-            Bucket=self.bucket_name, Key=self.path, Range=f"bytes={index}-{index+length-1}"
+            Bucket=self.bucket_name,
+            Key=self.path,
+            Range=f"bytes={index}-{index + length - 1}",
         )
         return response["Body"].read()
 
@@ -857,7 +962,9 @@ def extract_points(text, image_w, image_h):
             point /= 100.0
             point = point * np.array([image_w, image_h])
             all_points.append(point)
-    for match in re.finditer(r'x\d*="\s*([0-9]+(?:\.[0-9]+)?)"\s+y\d*="\s*([0-9]+(?:\.[0-9]+)?)"', text):
+    for match in re.finditer(
+        r'x\d*="\s*([0-9]+(?:\.[0-9]+)?)"\s+y\d*="\s*([0-9]+(?:\.[0-9]+)?)"', text
+    ):
         try:
             point = [float(match.group(i)) for i in range(1, 3)]
         except ValueError:
@@ -870,7 +977,7 @@ def extract_points(text, image_w, image_h):
             point /= 100.0
             point = point * np.array([image_w, image_h])
             all_points.append(point)
-    for match in re.finditer(r'(?:\d+|p)\s*=\s*([0-9]{3})\s*,\s*([0-9]{3})', text):
+    for match in re.finditer(r"(?:\d+|p)\s*=\s*([0-9]{3})\s*,\s*([0-9]{3})", text):
         try:
             point = [int(match.group(i)) / 10.0 for i in range(1, 3)]
         except ValueError:
@@ -889,9 +996,9 @@ def extract_points(text, image_w, image_h):
 def extract_bboxes(text, image_w, image_h):
     points = extract_points(text, image_w, image_h)
     boxes = []
-    for i in range(len(points)//2):
-        x1, y1 = points[i*2]
-        x2, y2 = points[i*2 + 1]
+    for i in range(len(points) // 2):
+        x1, y1 = points[i * 2]
+        x2, y2 = points[i * 2 + 1]
         boxes.append([x1, y1, x2, y2])
     return boxes
 

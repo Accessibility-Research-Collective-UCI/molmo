@@ -8,13 +8,21 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from omegaconf import OmegaConf
 
-from olmo.config import EvalConfig, FSDPConfig, FSDPWrapStrategy, FSDPPrecision, DatasetEvaluatorConfig, \
-    EvaluatorConfig, DataConfig
+from olmo.config import (
+    EvalConfig,
+    FSDPConfig,
+    FSDPWrapStrategy,
+    FSDPPrecision,
+    DatasetEvaluatorConfig,
+    EvaluatorConfig,
+    DataConfig,
+)
 from olmo.torch_util import get_world_size
 from olmo.util import (
     add_cached_path_clients,
     clean_opt,
-    prepare_cli_environment, )
+    prepare_cli_environment,
+)
 from scripts.mm_eval import ModelEvaluator
 
 log = logging.getLogger(__name__)
@@ -35,8 +43,12 @@ def main():
     parser.add_argument("--pbar", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--fsdp", action="store_true")
-    parser.add_argument("--max_new_tokens", type=int, default=448,
-                        help="Override max new tokens, otherwise use task-specific default")
+    parser.add_argument(
+        "--max_new_tokens",
+        type=int,
+        default=448,
+        help="Override max new tokens, otherwise use task-specific default",
+    )
     args, other_args = parser.parse_known_args()
 
     try:
@@ -52,9 +64,11 @@ def main():
     prepare_cli_environment()
 
     if args.max_examples:
-        batch_size = get_world_size()*args.device_batch_size
-        n_batches = args.max_examples//batch_size
-        logging.info(f"Evaluating on {n_batches} batches ({batch_size*n_batches} examples)")
+        batch_size = get_world_size() * args.device_batch_size
+        n_batches = args.max_examples // batch_size
+        logging.info(
+            f"Evaluating on {n_batches} batches ({batch_size * n_batches} examples)"
+        )
     else:
         n_batches = -1
 
@@ -66,19 +80,27 @@ def main():
             if match:
                 candidates.append((file, int(match.group(1))))
         if len(candidates) == 0:
-            raise FileNotFoundError(f"{checkpoint_dir} is a directory but it did not "
-                                    f"contain any unsharded checkpoints")
+            raise FileNotFoundError(
+                f"{checkpoint_dir} is a directory but it did not "
+                f"contain any unsharded checkpoints"
+            )
         checkpoint_dir = max(candidates, key=lambda x: x[1])[0].absolute().as_posix()
-        logging.info(f"Selected {checkpoint_dir} as oldest checkpoint in {checkpoint_dir}")
+        logging.info(
+            f"Selected {checkpoint_dir} as oldest checkpoint in {checkpoint_dir}"
+        )
     else:
         checkpoint_dir = args.checkpoint
 
     eval_config = DatasetEvaluatorConfig(
         data=DataConfig(
-            args.task, split=args.split, sequence_length=args.seq_len,
-            for_inference=True, drop_last=False,
+            args.task,
+            split=args.split,
+            sequence_length=args.seq_len,
+            for_inference=True,
+            drop_last=False,
             shuffle=False,
-            num_workers=2, pin_memory=True,
+            num_workers=2,
+            pin_memory=True,
         ),
         max_new_tokens=args.max_new_tokens,
         mm_evaluator=EvaluatorConfig(
@@ -91,7 +113,7 @@ def main():
         eval_name=args.eval_name,
         skip_if_metrics_cached=not args.overwrite,
         label=args.task,
-        subset_num_batches=n_batches
+        subset_num_batches=n_batches,
     )
 
     cfg = EvalConfig(
@@ -105,7 +127,9 @@ def main():
         fsdp=FSDPConfig(
             wrapping_strategy=FSDPWrapStrategy.by_block_and_size,
             precision=FSDPPrecision.float,
-        ) if args.fsdp else None,
+        )
+        if args.fsdp
+        else None,
     )
 
     if other_args:
@@ -116,5 +140,5 @@ def main():
     ModelEvaluator(cfg).run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

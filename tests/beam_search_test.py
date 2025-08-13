@@ -65,7 +65,9 @@ repeated_ngram_transition_probabilities_1 = torch.tensor(
 )
 # fmt: on
 
-log_probabilities = torch.log(torch.tensor([[0.1, 0.3, 0.3, 0.3, 0.0, 0.0], [0.0, 0.0, 0.4, 0.3, 0.2, 0.1]]))
+log_probabilities = torch.log(
+    torch.tensor([[0.1, 0.3, 0.3, 0.3, 0.0, 0.0], [0.0, 0.0, 0.4, 0.3, 0.2, 0.1]])
+)
 
 
 def get_step_function(
@@ -95,12 +97,16 @@ def get_step_function(
     return _step_function_with_timestep
 
 
-take_step_no_timestep = cast(StepFunctionTypeNoTimestep, get_step_function(transition_probabilities))
+take_step_no_timestep = cast(
+    StepFunctionTypeNoTimestep, get_step_function(transition_probabilities)
+)
 take_step_with_timestep = cast(
-    StepFunctionTypeWithTimestep, get_step_function(transition_probabilities, with_timestep=True)
+    StepFunctionTypeWithTimestep,
+    get_step_function(transition_probabilities, with_timestep=True),
 )
 take_short_sequence_step = cast(
-    StepFunctionTypeNoTimestep, get_step_function(short_sequence_transition_probabilities)
+    StepFunctionTypeNoTimestep,
+    get_step_function(short_sequence_transition_probabilities),
 )
 
 
@@ -110,7 +116,9 @@ class BeamSearchTest:
         self.beam_search = BeamSearch(self.end_index, max_steps=10, beam_size=3)
 
         # This is what the top k should look like for each item in the batch.
-        self.expected_top_k = np.array([[1, 2, 3, 4, 5], [2, 3, 4, 5, 5], [3, 4, 5, 5, 5]])
+        self.expected_top_k = np.array(
+            [[1, 2, 3, 4, 5], [2, 3, 4, 5, 5], [3, 4, 5, 5, 5]]
+        )
 
         # This is what the log probs should look like for each item in the batch.
         self.expected_log_probs = np.log(np.array([0.4, 0.3, 0.2]))
@@ -122,10 +130,18 @@ class BeamSearchTest:
         expected_log_probs: Optional[np.array] = None,  # type: ignore
         beam_search: Optional[BeamSearch] = None,
         state: Optional[dict[str, torch.Tensor]] = None,
-        take_step: Union[StepFunctionTypeNoTimestep, StepFunctionTypeWithTimestep] = take_step_with_timestep,
+        take_step: Union[
+            StepFunctionTypeNoTimestep, StepFunctionTypeWithTimestep
+        ] = take_step_with_timestep,
     ) -> None:
-        expected_top_k = expected_top_k if expected_top_k is not None else self.expected_top_k
-        expected_log_probs = expected_log_probs if expected_log_probs is not None else self.expected_log_probs
+        expected_top_k = (
+            expected_top_k if expected_top_k is not None else self.expected_top_k
+        )
+        expected_log_probs = (
+            expected_log_probs
+            if expected_log_probs is not None
+            else self.expected_log_probs
+        )
         state = state or {}
 
         beam_search = beam_search or self.beam_search
@@ -142,13 +158,17 @@ class BeamSearchTest:
         assert list(log_probs.size()) == [batch_size, beam_size]
         np.testing.assert_allclose(log_probs[0].numpy(), expected_log_probs, rtol=1e-6)
 
-    @pytest.mark.parametrize("step_function", [take_step_with_timestep, take_step_no_timestep])
+    @pytest.mark.parametrize(
+        "step_function", [take_step_with_timestep, take_step_no_timestep]
+    )
     def test_search(self, step_function):
         self._check_results(take_step=step_function)
 
     def test_finished_state(self):
         state = {}
-        state["foo"] = torch.tensor([[1, 0, 1], [2, 0, 1], [0, 0, 1], [1, 1, 1], [0, 0, 0]])
+        state["foo"] = torch.tensor(
+            [[1, 0, 1], [2, 0, 1], [0, 0, 1], [1, 1, 1], [0, 0, 0]]
+        )
         # shape: (batch_size, 3)
 
         expected_finished_state = {}
@@ -221,7 +241,13 @@ class BeamSearchTest:
         """
         self.beam_search.beam_size = 5
         expected_top_k = np.array(
-            [[5, 5, 5, 5, 5], [1, 5, 5, 5, 5], [1, 2, 5, 5, 5], [1, 2, 3, 5, 5], [1, 2, 3, 4, 5]]
+            [
+                [5, 5, 5, 5, 5],
+                [1, 5, 5, 5, 5],
+                [1, 2, 5, 5, 5],
+                [1, 2, 3, 5, 5],
+                [1, 2, 3, 4, 5],
+            ]
         )
         expected_log_probs = np.log(np.array([0.9, 0.09, 0.009, 0.0009, 0.0001]))
         self._check_results(
@@ -309,7 +335,9 @@ class BeamSearchTest:
         initial_predictions = torch.LongTensor([self.end_index - 1, self.end_index - 1])
         beam_search = BeamSearch(self.end_index, beam_size=1)
         with pytest.warns(RuntimeWarning, match="Empty sequences predicted"):
-            predictions, log_probs = beam_search.search(initial_predictions, {}, take_step_with_timestep)
+            predictions, log_probs = beam_search.search(
+                initial_predictions, {}, take_step_with_timestep
+            )
         # predictions hould have shape `(batch_size, beam_size, max_predicted_length)`.
         assert list(predictions.size()) == [2, 1, 1]
         # log probs hould have shape `(batch_size, beam_size)`.
@@ -323,9 +351,9 @@ class BeamSearchTest:
         take_step = take_step_with_timestep
         p_sampler = TopPSampler(p=0.8)
 
-        top_p, log_probs = BeamSearch(self.end_index, beam_size=beam_size, max_steps=10, sampler=p_sampler).search(
-            initial_predictions, {}, take_step
-        )
+        top_p, log_probs = BeamSearch(
+            self.end_index, beam_size=beam_size, max_steps=10, sampler=p_sampler
+        ).search(initial_predictions, {}, take_step)
 
         beam_size = beam_size or 1
         batch_size = 5
@@ -346,9 +374,9 @@ class BeamSearchTest:
             beam_size = 3
             p_sampler = TopPSampler(p=p_val, with_replacement=True)
 
-            BeamSearch(self.end_index, beam_size=beam_size, max_steps=10, sampler=p_sampler).search(
-                initial_predictions, {}, take_step
-            )
+            BeamSearch(
+                self.end_index, beam_size=beam_size, max_steps=10, sampler=p_sampler
+            ).search(initial_predictions, {}, take_step)
 
     def test_top_k_search(self):
         initial_predictions = torch.tensor([0] * 5)
@@ -356,9 +384,9 @@ class BeamSearchTest:
         take_step = take_step_with_timestep
         k_sampler = TopKSampler(k=5, with_replacement=True)
 
-        top_k, log_probs = BeamSearch(self.end_index, beam_size=beam_size, max_steps=10, sampler=k_sampler).search(
-            initial_predictions, {}, take_step
-        )
+        top_k, log_probs = BeamSearch(
+            self.end_index, beam_size=beam_size, max_steps=10, sampler=k_sampler
+        ).search(initial_predictions, {}, take_step)
 
         beam_size = beam_size or 1
         batch_size = 5
@@ -379,9 +407,9 @@ class BeamSearchTest:
             beam_size = 3
             k_sampler = TopKSampler(k=k_val, with_replacement=True)
 
-            BeamSearch(self.end_index, beam_size=beam_size, max_steps=10, sampler=k_sampler).search(
-                initial_predictions, {}, take_step
-            )
+            BeamSearch(
+                self.end_index, beam_size=beam_size, max_steps=10, sampler=k_sampler
+            ).search(initial_predictions, {}, take_step)
 
     def test_stochastic_beam_search(self):
         initial_predictions = torch.tensor([0] * 5)
@@ -457,9 +485,13 @@ class BeamSearchTest:
     def test_gumbel_sampler(self):
         sampler = GumbelSampler()
         num_classes = len(log_probabilities[0])
-        sampler_state = sampler.init_state(log_probabilities, batch_size=2, num_classes=num_classes)
+        sampler_state = sampler.init_state(
+            log_probabilities, batch_size=2, num_classes=num_classes
+        )
 
-        log_probs, indices, _ = sampler.sample_beams(log_probabilities, 3, sampler_state)
+        log_probs, indices, _ = sampler.sample_beams(
+            log_probabilities, 3, sampler_state
+        )
 
         assert log_probs.size() == indices.size()
         assert indices.size() == (2, 3)
@@ -476,7 +508,9 @@ class BeamSearchTest:
         Tests to ensure the sequences are normalized by the correct values. The end token is
         included in the length. The start token is not.
         """
-        self.beam_search.final_sequence_scorer = LengthNormalizedSequenceLogProbabilityScorer()
+        self.beam_search.final_sequence_scorer = (
+            LengthNormalizedSequenceLogProbabilityScorer()
+        )
         expected_log_probs = np.log(np.array([0.4, 0.3, 0.2]))
         length_normalization = np.array([5, 4, 3])
         expected_scores = expected_log_probs / length_normalization
@@ -484,37 +518,47 @@ class BeamSearchTest:
 
         # Introduce a length penalty
         length_penalty = 2.0
-        self.beam_search.final_sequence_scorer = LengthNormalizedSequenceLogProbabilityScorer(
-            length_penalty=length_penalty
+        self.beam_search.final_sequence_scorer = (
+            LengthNormalizedSequenceLogProbabilityScorer(length_penalty=length_penalty)
         )
         expected_log_probs = np.log(np.array([0.4, 0.3, 0.2]))
-        length_normalization = np.array([5**length_penalty, 4**length_penalty, 3**length_penalty])
+        length_normalization = np.array(
+            [5**length_penalty, 4**length_penalty, 3**length_penalty]
+        )
         expected_scores = expected_log_probs / length_normalization
         self._check_results(expected_log_probs=expected_scores)
 
         # Pick a length penalty so extreme that the order of the sequences is reversed
         length_penalty = -2.0
-        self.beam_search.final_sequence_scorer = LengthNormalizedSequenceLogProbabilityScorer(
-            length_penalty=length_penalty
+        self.beam_search.final_sequence_scorer = (
+            LengthNormalizedSequenceLogProbabilityScorer(length_penalty=length_penalty)
         )
         expected_top_k = np.array([[3, 4, 5, 5, 5], [2, 3, 4, 5, 5], [1, 2, 3, 4, 5]])
         expected_log_probs = np.log(np.array([0.2, 0.3, 0.4]))
-        length_normalization = np.array([3**length_penalty, 4**length_penalty, 5**length_penalty])
+        length_normalization = np.array(
+            [3**length_penalty, 4**length_penalty, 5**length_penalty]
+        )
         expected_scores = expected_log_probs / length_normalization
-        self._check_results(expected_top_k=expected_top_k, expected_log_probs=expected_scores)
+        self._check_results(
+            expected_top_k=expected_top_k, expected_log_probs=expected_scores
+        )
 
         # Here, we set the max_steps = 4. This prevents the first sequence from finishing,
         # so its length does not include the end token, whereas the other sequences do.
         length_penalty = 2.0
         self.beam_search.max_steps = 4
-        self.beam_search.final_sequence_scorer = LengthNormalizedSequenceLogProbabilityScorer(
-            length_penalty=length_penalty
+        self.beam_search.final_sequence_scorer = (
+            LengthNormalizedSequenceLogProbabilityScorer(length_penalty=length_penalty)
         )
         expected_top_k = np.array([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 5]])
         expected_log_probs = np.log(np.array([0.4, 0.3, 0.2]))
-        length_normalization = np.array([4**length_penalty, 4**length_penalty, 3**length_penalty])
+        length_normalization = np.array(
+            [4**length_penalty, 4**length_penalty, 3**length_penalty]
+        )
         expected_scores = expected_log_probs / length_normalization
-        self._check_results(expected_top_k=expected_top_k, expected_log_probs=expected_scores)
+        self._check_results(
+            expected_top_k=expected_top_k, expected_log_probs=expected_scores
+        )
 
     def test_repeated_ngram_blocking_constraint_init_state(self):
         ngram_size = 3
@@ -675,7 +719,9 @@ class BeamSearchTest:
         step_function = get_step_function(repeated_ngram_transition_probabilities_1)
         self.beam_search.max_steps = 5
         expected_top_k = np.array([[1, 2, 3, 4, 5], [1, 2, 4, 3, 5]])
-        expected_log_probs = np.log(np.array([0.4 * 0.3 * 0.3 * 0.2 * 0.1, 0.4 * 0.3 * 0.2 * 0.3 * 0.1]))
+        expected_log_probs = np.log(
+            np.array([0.4 * 0.3 * 0.3 * 0.2 * 0.1, 0.4 * 0.3 * 0.2 * 0.3 * 0.1])
+        )
         self._check_results(
             expected_top_k=expected_top_k,
             expected_log_probs=expected_log_probs,

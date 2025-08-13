@@ -38,7 +38,9 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
 
     # Initialize model, optimizer, and checkpointer.
     train_config = TrainConfig(
-        optimizer=OptimizerConfig(name=OptimizerType.adamw, learning_rate=0.1, weight_decay=0.1)
+        optimizer=OptimizerConfig(
+            name=OptimizerType.adamw, learning_rate=0.1, weight_decay=0.1
+        )
     )
     fsdp_model1, optim1 = _init_model_and_optim(train_config)
     checkpointer = LocalShardedCheckpointer(train_config)
@@ -55,8 +57,12 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     with FSDP.summon_full_params(fsdp_model1), FSDP.summon_full_params(fsdp_model2):
         torch.testing.assert_close(fsdp_model1.weight, fsdp_model2.weight)
         torch.testing.assert_close(fsdp_model1.bias, fsdp_model2.bias)
-    torch.testing.assert_close(opt_at(optim1, 0, "exp_avg"), opt_at(optim2, 0, "exp_avg"))
-    torch.testing.assert_close(opt_at(optim1, 0, "exp_avg_sq"), opt_at(optim2, 0, "exp_avg_sq"))
+    torch.testing.assert_close(
+        opt_at(optim1, 0, "exp_avg"), opt_at(optim2, 0, "exp_avg")
+    )
+    torch.testing.assert_close(
+        opt_at(optim1, 0, "exp_avg_sq"), opt_at(optim2, 0, "exp_avg_sq")
+    )
 
     # Now save a full unsharded checkpoint.
     full_checkpointer = FullCheckpointer(train_config)
@@ -67,8 +73,8 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
     full_model_state_dict, full_optim_state_dict = full_checkpointer.load_checkpoint(
         checkpoint_dir_full, device=torch.device("cuda")
     )
-    unsharded_model_state_dict, unsharded_optim_state_dict, _ = checkpointer.unshard_checkpoint(
-        checkpoint_dir, device=torch.device("cuda")
+    unsharded_model_state_dict, unsharded_optim_state_dict, _ = (
+        checkpointer.unshard_checkpoint(checkpoint_dir, device=torch.device("cuda"))
     )
     assert full_optim_state_dict is not None
     assert unsharded_optim_state_dict is not None
@@ -87,26 +93,41 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
             fqn_to_id[fqn] = id
 
     # Validate the unsharded optim param groups.
-    assert len(unsharded_optim_state_dict["param_groups"]) == len(full_optim_state_dict["param_groups"])
+    assert len(unsharded_optim_state_dict["param_groups"]) == len(
+        full_optim_state_dict["param_groups"]
+    )
     for unsharded_group, full_group in zip(
-        unsharded_optim_state_dict["param_groups"], full_optim_state_dict["param_groups"]
+        unsharded_optim_state_dict["param_groups"],
+        full_optim_state_dict["param_groups"],
     ):
         assert unsharded_group.keys() == full_group.keys()
         for key in unsharded_group.keys():
             if key == "param_names":
-                assert unsharded_group[key] == [n.replace("_fsdp_wrapped_module.", "") for n in full_group[key]]
+                assert unsharded_group[key] == [
+                    n.replace("_fsdp_wrapped_module.", "") for n in full_group[key]
+                ]
             elif key == "params" and isinstance(full_group[key][0], str):
                 # These are FQNs instead of IDs.
-                assert unsharded_group[key] == [fqn_to_id[fqn] for fqn in full_group[key]]
+                assert unsharded_group[key] == [
+                    fqn_to_id[fqn] for fqn in full_group[key]
+                ]
             else:
                 assert unsharded_group[key] == full_group[key], key
 
     # Validate the unsharded optim state tensors.
     if isinstance(next(iter(full_optim_state_dict["state"].keys())), str):
-        full_optim_state_dict["state"] = {fqn_to_id[fqn]: s for fqn, s in full_optim_state_dict["state"].items()}
-    assert unsharded_optim_state_dict["state"].keys() == full_optim_state_dict["state"].keys()
+        full_optim_state_dict["state"] = {
+            fqn_to_id[fqn]: s for fqn, s in full_optim_state_dict["state"].items()
+        }
+    assert (
+        unsharded_optim_state_dict["state"].keys()
+        == full_optim_state_dict["state"].keys()
+    )
     for id in unsharded_optim_state_dict["state"].keys():
-        unsharded_state, full_state = unsharded_optim_state_dict["state"][id], full_optim_state_dict["state"][id]
+        unsharded_state, full_state = (
+            unsharded_optim_state_dict["state"][id],
+            full_optim_state_dict["state"][id],
+        )
         assert unsharded_state.keys() == full_state.keys()
         for key in unsharded_state.keys():
             torch.testing.assert_close(unsharded_state[key], full_state[key])
@@ -116,7 +137,9 @@ def _run_local_sharded_checkpointer_test(rank: int, world_size: int, tmp_path: P
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(torch.cuda.device_count() < 2, reason="Requires 2 or more CUDA devices")
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 2, reason="Requires 2 or more CUDA devices"
+)
 def test_local_sharded_checkpointer(tmp_path: Path):
     world_size = torch.cuda.device_count()
     mp.spawn(

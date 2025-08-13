@@ -92,7 +92,9 @@ class BaseConfig:
             latest_checkpoint = find_latest_checkpoint(path)
             if latest_checkpoint is None:
                 if validate_paths:
-                    raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
+                    raise FileNotFoundError(
+                        f"Could not find a latest checkpoint at {path}"
+                    )
                 else:
                     return ""
             else:
@@ -100,7 +102,9 @@ class BaseConfig:
 
         om.register_new_resolver("path.glob", path_glob, replace=True)
         om.register_new_resolver("path.choose", path_choose, replace=True)
-        om.register_new_resolver("path.last_checkpoint", path_last_checkpoint, replace=True)
+        om.register_new_resolver(
+            "path.last_checkpoint", path_last_checkpoint, replace=True
+        )
 
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:
@@ -241,6 +245,7 @@ class VisionBackboneType(StrEnum):
 
 class ImagePaddingEmbed(StrEnum):
     """How to embed image padding information"""
+
     pad_and_partial_pad = "pad_and_partial_pad"
     pad_embed = "pad_embed"
     regress = "regress"
@@ -248,6 +253,7 @@ class ImagePaddingEmbed(StrEnum):
 
 class ImagePooling2DType(StrEnum):
     """How to pool patch features"""
+
     attention = "attention"
     attention_meanq = "attention_meanq"
     attention_2wide = "attention_2wide"
@@ -257,6 +263,7 @@ class ImagePooling2DType(StrEnum):
 
 class ImageProjectType(StrEnum):
     """How to project the pooled features into the LLM embedding space"""
+
     mlp = "mlp"
     mlpx2 = "2mlp"
     linear = "linear"
@@ -264,6 +271,7 @@ class ImageProjectType(StrEnum):
 
 class AttentionType(StrEnum):
     """Attention to use"""
+
     sdpa = "sdpa"
     direct = "direct"
     flash = "flash"
@@ -412,7 +420,7 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
-    rope_theta: float = 10000.
+    rope_theta: float = 10000.0
     """
     RoPE theta parameter.
     """
@@ -771,7 +779,7 @@ class ModelConfig(BaseConfig):
             tokenizer_cfg.identifier,
             tokenizer_dir=tokenizer_cfg.tokenizer_dir,
             pad_tokenizer_to=self.vocab_size if self.pad_tokenizer else None,
-            **kargs
+            **kargs,
         )
 
     def __post_init__(self):
@@ -786,7 +794,9 @@ class ModelConfig(BaseConfig):
         # legacy config options we have since abandoned
         config.tokenizer = TokenizerConfig.update_legacy_settings(config.tokenizer)
         if config.vision_backbone is not None:
-            config.vision_backbone = VisionBackboneConfig.update_legacy_settings(config.vision_backbone)
+            config.vision_backbone = VisionBackboneConfig.update_legacy_settings(
+                config.vision_backbone
+            )
 
         if config.image_pooling_2d == "attention-meanq":
             config.image_pooling_2d = ImagePooling2DType.attention_meanq
@@ -794,7 +804,9 @@ class ModelConfig(BaseConfig):
         if "flash_attention" in config:
             is_flash = config.flash_attention
             del config.flash_attention
-            config.attention_type = AttentionType.flash if is_flash else AttentionType.sdpa
+            config.attention_type = (
+                AttentionType.flash if is_flash else AttentionType.sdpa
+            )
 
         if "query_pre_attn_scalar" in config:
             del config.query_pre_attn_scalar
@@ -1048,13 +1060,15 @@ class EvaluatorConfig(BaseConfig):
     num_wandb_examples: int = 0
     """Num examples to log to Wandb as a HTML table"""
 
-    save_predictions: Optional[str] = "_default"  # saves with default name to checkpoint dir
+    save_predictions: Optional[str] = (
+        "_default"  # saves with default name to checkpoint dir
+    )
     """Where to save predictions files"""
 
     save_tokens: bool = False
     """If save predictions, should the tokens be saved"""
 
-    vqa_eval: str = ''
+    vqa_eval: str = ""
     """name(s) of VQA-style eval to run, can be a comma seperated list"""
 
     # Other individual types of eval
@@ -1063,7 +1077,7 @@ class EvaluatorConfig(BaseConfig):
     point_count_eval: bool = False
     android_eval: bool = False
     clock_eval: bool = False
-    clock_bench_eval: bool = False # Clock reading benchmark, coco/openimg/movies
+    clock_bench_eval: bool = False  # Clock reading benchmark, coco/openimg/movies
     math_vista_eval: bool = False
 
 
@@ -1095,7 +1109,7 @@ class DataConfig(BaseConfig):
     shuffle_messages: bool = True
     """For multi-annotated images, should we shuffle the messages"""
 
-    pad: Optional[str]="to_max"
+    pad: Optional[str] = "to_max"
     """How pad array in the collator"""
 
     sequence_length: Optional[int] = None
@@ -1121,8 +1135,13 @@ class DataConfig(BaseConfig):
     @classmethod
     def update_legacy_settings(cls, config: D) -> D:
         config = config.copy()
-        for k in ["pad_direction", "label_mask_paths", "generate_attention_mask",
-                  "use_memory_cache", "shuffle_buffer_size"]:
+        for k in [
+            "pad_direction",
+            "label_mask_paths",
+            "generate_attention_mask",
+            "use_memory_cache",
+            "shuffle_buffer_size",
+        ]:
             if k in config:
                 del config[k]
         if "num_epochs" in config:
@@ -1177,7 +1196,9 @@ class DatasetEvaluatorConfig(BaseConfig):
     def update_legacy_settings(cls, config: D) -> D:
         config = config.copy()
         if getattr(config, "mm_evaluator", None):
-            config.mm_evaluator = EvaluatorConfig.update_legacy_settings(config.mm_evaluator)
+            config.mm_evaluator = EvaluatorConfig.update_legacy_settings(
+                config.mm_evaluator
+            )
         if getattr(config, "data", None):
             config.data = DataConfig.update_legacy_settings(config.data)
         return config
@@ -1649,7 +1670,7 @@ class TrainConfig(BaseConfig):
     Clip gradient norms to this value if set.
     """
 
-    multi_component_grad_norm: bool =True
+    multi_component_grad_norm: bool = True
     """
     Use separate grad norm for each component in multi-modal model
     """
@@ -1808,10 +1829,14 @@ class TrainConfig(BaseConfig):
                 if new_config.activation_checkpointing is False:
                     new_config.activation_checkpointing = None
                 if new_config.activation_checkpointing is True:
-                    new_config.activation_checkpointing = ActivationCheckpointingStrategy.whole_layer
+                    new_config.activation_checkpointing = (
+                        ActivationCheckpointingStrategy.whole_layer
+                    )
 
             if hasattr(new_config, "optimizer"):
-                new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
+                new_config.optimizer = OptimizerConfig.update_legacy_settings(
+                    new_config.optimizer
+                )
 
             if hasattr(new_config, "data"):
                 new_config.data = DataConfig.update_legacy_settings(new_config.data)
@@ -1821,8 +1846,14 @@ class TrainConfig(BaseConfig):
 
             for k in ["inf_evaluators", "evaluators"]:
                 if hasattr(new_config, k):
-                    setattr(new_config, k, [DatasetEvaluatorConfig.update_legacy_settings(x)
-                                            for x in getattr(new_config, k)])
+                    setattr(
+                        new_config,
+                        k,
+                        [
+                            DatasetEvaluatorConfig.update_legacy_settings(x)
+                            for x in getattr(new_config, k)
+                        ],
+                    )
 
         return new_config
 
@@ -1892,12 +1923,16 @@ def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
     from .model import Activation
 
     hidden_size = (
-        config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+        config.mlp_hidden_size
+        if config.mlp_hidden_size is not None
+        else config.mlp_ratio * config.d_model
     )
     act = Activation.build(config)
     num_layers = config.n_layers // 2 if config.moe_interleave else config.n_layers
     kwargs = {
-        "activation_fn": F.silu if "swiglu" in config.activation_type.lower() else Activation.build(config),
+        "activation_fn": F.silu
+        if "swiglu" in config.activation_type.lower()
+        else Activation.build(config),
         "mlp_type": "glu" if "glu" in config.activation_type.lower() else "mlp",
         "mlp_impl": config.moe_mlp_impl,
         "hidden_size": config.d_model,

@@ -53,7 +53,7 @@ class DeterministicDataset:
             yield self[i]
 
     def get(self, idx, epoch=0):
-        rng = np.random.RandomState(self.seed + idx + len(self.dataset)*epoch)
+        rng = np.random.RandomState(self.seed + idx + len(self.dataset) * epoch)
         if idx >= len(self.dataset):
             # Padding example
             item = self.dataset.get(0, rng)
@@ -68,11 +68,11 @@ class DeterministicDataset:
 
 
 class DatasetBase(Dataset):
-    def __init__(self, split, sample: int=None):
+    def __init__(self, split, sample: int = None):
         super().__init__()
         self.split = split
         self.sample = sample
-        self.data = self.load()[:self.sample]
+        self.data = self.load()[: self.sample]
 
     def load(self):
         raise NotImplementedError()
@@ -99,7 +99,8 @@ class HfDataset(Dataset):
     def __init__(self, split: str, keep_in_memory=True, **kwargs):
         self.split = split
         self.dataset = datasets.load_dataset(
-            self.PATH, split=split, keep_in_memory=keep_in_memory, **kwargs)
+            self.PATH, split=split, keep_in_memory=keep_in_memory, **kwargs
+        )
 
     def __len__(self):
         return len(self.dataset)

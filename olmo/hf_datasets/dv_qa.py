@@ -7,7 +7,6 @@ import datasets
 
 
 class DvQaBuilder(datasets.GeneratorBasedBuilder):
-
     VERSION = datasets.Version("1.0.0")
 
     def __init__(self, *args, **kwargs):
@@ -15,17 +14,25 @@ class DvQaBuilder(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         return datasets.DatasetInfo(
-            features=datasets.Features({
-                'image': datasets.Image(),
-                'image_id': datasets.Value("string"),
-                "questions": datasets.Sequence(datasets.Features({
-                    "question": datasets.Value("string"),
-                    "answer": datasets.Value("string"),
-                }))
-            }),
+            features=datasets.Features(
+                {
+                    "image": datasets.Image(),
+                    "image_id": datasets.Value("string"),
+                    "questions": datasets.Sequence(
+                        datasets.Features(
+                            {
+                                "question": datasets.Value("string"),
+                                "answer": datasets.Value("string"),
+                            }
+                        )
+                    ),
+                }
+            ),
         )
 
-    def _split_generators(self, dl_manager: datasets.DownloadManager) -> List[datasets.SplitGenerator]:
+    def _split_generators(
+        self, dl_manager: datasets.DownloadManager
+    ) -> List[datasets.SplitGenerator]:
         file_ids = dict(
             image_dir="1iKH2lTi1-QxtNUVRxTUWFvUvRHq6HAsZ",
             annotation_dir="1VKYd3kaiCFziSsSv4SgQJ2T5m7jxuh5u",
@@ -50,10 +57,16 @@ class DvQaBuilder(datasets.GeneratorBasedBuilder):
             for q in questions:
                 q.pop("image")
                 q.pop("answer_bbox")
-            yield image, dict(
-                image_id=image,
-                image=join(image_dir, "images", image),
-                questions=[dict(question=q["question"], answer=q["answer"]) for q in questions]
+            yield (
+                image,
+                dict(
+                    image_id=image,
+                    image=join(image_dir, "images", image),
+                    questions=[
+                        dict(question=q["question"], answer=q["answer"])
+                        for q in questions
+                    ],
+                ),
             )
 
 

@@ -1,10 +1,8 @@
-import dataclasses
 import logging
 from typing import List, Optional, Any, Dict
 
 import numpy as np
 import torch
-from torch.utils.data import Sampler
 
 from olmo.data.dataset import DeterministicDataset
 from olmo.torch_util import get_world_size, get_global_rank
@@ -19,14 +17,14 @@ class IterableDatasetMixture(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self,
         datasets: List[DeterministicDataset],
         global_batch_size: int,
-        mixture_rates: List[float]=None,
+        mixture_rates: List[float] = None,
         seed: int = 0,
         start_index: int = 0,
         shuffle: bool = True,
         world_size: Optional[int] = None,
         rank: Optional[int] = None,
         stratify: bool = False,
-        worker_info=None
+        worker_info=None,
     ):
         self.datasets = list(datasets)
         if mixture_rates:
@@ -55,16 +53,14 @@ class IterableDatasetMixture(torch.utils.data.IterableDataset[Dict[str, Any]]):
             total = counts.sum()
             for _ in range(self.global_batch_size):
                 # Sample the most under-represented dataset
-                ix = np.argmax(np.abs(counts/total - self.mixture_rates))
+                ix = np.argmax(np.abs(counts / total - self.mixture_rates))
                 out.append(ix)
                 counts[ix] += 1
                 total += 1
             return np.array(out)
         else:
             return rng.choice(
-                len(self.datasets),
-                size=self.global_batch_size,
-                p=self.mixture_rates
+                len(self.datasets), size=self.global_batch_size, p=self.mixture_rates
             )
 
     def __iter__(self):
@@ -78,13 +74,15 @@ class IterableDatasetMixture(torch.utils.data.IterableDataset[Dict[str, Any]]):
             assert self.start_index % self.global_batch_size == 0
             start_batch = self.start_index // self.global_batch_size
             if worker_info is None:
-                log.info(f"Fast forwarding instance {self.start_index}, batch {start_batch}...")
+                log.info(
+                    f"Fast forwarding instance {self.start_index}, batch {start_batch}..."
+                )
             for i in range(start_batch):
                 ix = self._get_next_sources(rng, counts)
                 batch_ix += 1
                 np.add.at(counts, ix, 1)
             if worker_info is None:
-                log.info(f"Done")
+                log.info("Done")
         shuffled_ixs = [(None, None) for _ in self.datasets]
 
         while True:
